@@ -5,7 +5,7 @@ module.exports = {
     entry: "./src/index.ts",
     output: {
         filename: 'index.js',
-        path: path.resolve(__dirname, './dist')
+        path: path.resolve(__dirname, './docs')
     },
     watchOptions: {
         ignored: /node_modules/
@@ -15,7 +15,7 @@ module.exports = {
     devtool: "source-map",
 
     devServer: {
-        contentBase: './dist',
+        contentBase: './docs',
         // open: 'chrome',
     },
 

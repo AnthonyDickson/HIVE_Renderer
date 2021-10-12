@@ -14,7 +14,7 @@ npm start
     git merge master # Copy changes from the main branch. 
     npm build
     # Built files must be copied to the dir that GitHub is setup to use (I use root/ in this example).
-    cp -r dist/* .
+    cp -r docs/* .
     # Add the new javascript files
     git add index* 
     # (Optional) if you added video

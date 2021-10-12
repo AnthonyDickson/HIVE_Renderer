@@ -6,9 +6,9 @@
       <excludeFolder url="file://$MODULE_DIR$/.tmp" />
       <excludeFolder url="file://$MODULE_DIR$/tmp" />
       <excludeFolder url="file://$MODULE_DIR$/video" />
-      <excludeFolder url="file://$MODULE_DIR$/dist/video" />
+      <excludeFolder url="file://$MODULE_DIR$/docs/video" />
     </content>
-    <content url="file://$MODULE_DIR$/dist" />
+    <content url="file://$MODULE_DIR$/docs" />
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
