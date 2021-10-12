@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
 import Stats from "three/examples/jsm/libs/stats.module.js";
-
+import {VRButton} from 'three/examples/jsm/webxr/VRButton.js';
 
 window.onload = () => {
     init();
@@ -18,7 +18,10 @@ function init() {
     // TODO: Find fix for video textures pausing if source video is not visible.
     // TODO: Remove scaling from renderer initialiser.
     renderer.setSize(window.innerWidth * 0.75, window.innerHeight * 0.75);
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local');
     document.body.appendChild(renderer.domElement)
+    document.body.appendChild(VRButton.createButton(renderer));
 
     const stats = Stats();
     stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -60,15 +63,11 @@ function init() {
 
     camera.position.z = 5;
 
-    const animate = function () {
-        requestAnimationFrame(animate);
-
-        stats.begin();
+    renderer.setAnimationLoop(function () {
+        stats.begin()
 
         renderer.render(scene, camera);
 
         stats.end()
-    };
-
-    animate();
+    });
 }
