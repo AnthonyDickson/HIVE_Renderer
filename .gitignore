@@ -4,5 +4,3 @@ node_modules/
 .DS_STORE
 Session.vim
 /video/dance/
-/dist/index.js
-/dist/index.js.map
