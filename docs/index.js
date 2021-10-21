@@ -52854,9 +52854,7 @@ function init() {
     const scene = new three__WEBPACK_IMPORTED_MODULE_0__["Scene"]();
     const camera = new three__WEBPACK_IMPORTED_MODULE_0__["PerspectiveCamera"](60, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new three__WEBPACK_IMPORTED_MODULE_0__["WebGLRenderer"]();
-    // TODO: Find fix for video textures pausing if source video is not visible.
-    // TODO: Remove scaling from renderer initialiser.
-    renderer.setSize(window.innerWidth * 0.75, window.innerHeight * 0.75);
+    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType('local');
     document.body.appendChild(renderer.domElement);

@@ -4,16 +4,21 @@
     <title>three.js vr - panorama with depth</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
 </head>
 <body>
 <div id="container">
 </div>
 <div id="video-container">
 
-    <video id="rgb-video" playsinline webkit-playsinline muted loop autoplay width="320" height="240" src="video/dance/rgb.mp4"></video>
-    <video id="depth-video" playsinline webkit-playsinline muted loop autoplay width="320" height="240" src="video/dance/depth.mp4"></video>
-    <video id="bg-alpha-video" playsinline webkit-playsinline muted loop autoplay width="320" height="240" src="video/dance/mask_000.mp4"></video>
-    <video id="object-001-video" playsinline webkit-playsinline muted loop autoplay width="320" height="240" src="video/dance/mask_001.mp4"></video>
+    <video id="rgb-video" playsinline webkit-playsinline muted loop autoplay width="320" height="240" src="video/dance/rgb.mp4" style="display: none"></video>
+    <video id="depth-video" playsinline webkit-playsinline muted loop autoplay width="320" height="240" src="video/dance/depth.mp4" style="display: none"></video>
+    <video id="bg-alpha-video" playsinline webkit-playsinline muted loop autoplay width="320" height="240" src="video/dance/mask_000.mp4" style="display: none"></video>
+    <video id="object-001-video" playsinline webkit-playsinline muted loop autoplay width="320" height="240" src="video/dance/mask_001.mp4" style="display: none"></video>
 </div>
 </body>
 <script src="index.js"></script>

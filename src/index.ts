@@ -15,9 +15,7 @@ function init() {
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
     const renderer = new THREE.WebGLRenderer();
-    // TODO: Find fix for video textures pausing if source video is not visible.
-    // TODO: Remove scaling from renderer initialiser.
-    renderer.setSize(window.innerWidth * 0.75, window.innerHeight * 0.75);
+    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType('local');
     document.body.appendChild(renderer.domElement)

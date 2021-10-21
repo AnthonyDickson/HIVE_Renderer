@@ -17,6 +17,8 @@ module.exports = {
     devServer: {
         contentBase: './docs',
         // open: 'chrome',
+        host: "0.0.0.0",
+        port: "8080"
     },
 
     resolve: {
