@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
 import Stats from "three/examples/jsm/libs/stats.module.js";
 import {VRButton} from 'three/examples/jsm/webxr/VRButton.js';
+import loader from "awesome-typescript-loader";
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 window.onload = () => {
     init();
@@ -16,9 +18,10 @@ function init() {
 
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    renderer.setClearColor(0xffffff, 1);
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType('local');
-    document.body.appendChild(renderer.domElement)
     document.body.appendChild(VRButton.createButton(renderer));
 
     const stats = Stats();
@@ -28,41 +31,66 @@ function init() {
     const controls = new OrbitControls(camera, renderer.domElement);
 
     scene.add(new THREE.AmbientLight(0xffffff));
+    let directionalLight = new THREE.DirectionalLight(0xffffff, 100);
+    directionalLight.position.set(1, 1, -1)
+    scene.add(directionalLight)
 
-    const geometry = new THREE.PlaneGeometry(6.4, 4.8, 320, 240);
+    const loader = new GLTFLoader();
+    let meshes = [];
+    let currentMeshIndex = 0;
+    let timeSinceLastMeshSwap = 0.0;
+    const swapMeshInterval = 1.0 / 30.0; // seconds
+    const clock = new THREE.Clock()
+    clock.start()
+    console.log(currentMeshIndex)
 
-    const rgbVideo = document.getElementById("rgb-video") as HTMLVideoElement
-    const rgbTexture = new THREE.VideoTexture(rgbVideo)
+    loader.load( 'scene3d/model.gltf', function ( gltf ) {
+        for (const mesh of gltf.scene.children[0].children as unknown as Array<THREE.Mesh>) {
+            mesh.material = new THREE.MeshBasicMaterial({map: (mesh.material as THREE.MeshStandardMaterial).map})
+            meshes.push(mesh)
+        }
 
-    const depthVideo = document.getElementById("depth-video") as HTMLVideoElement
-    const depthTexture = new THREE.VideoTexture(depthVideo)
+        scene.add(meshes[currentMeshIndex])
 
-    const bgAlphaVideo = document.getElementById("bg-alpha-video") as HTMLVideoElement
-    const bgAlphaTexture = new THREE.VideoTexture(bgAlphaVideo)
+        console.log(gltf)
+        console.log(meshes)
 
-    const backgroundMaterial = new THREE.MeshPhongMaterial({
-        map: rgbTexture, displacementMap: depthTexture,
-        alphaMap: bgAlphaTexture, transparent: true,
-        displacementScale: displacementScale, displacementBias: displacementBias, flatShading: true, toneMapped: false
-    })
-    const backgroundMesh = new THREE.Mesh(geometry, backgroundMaterial);
-    scene.add(backgroundMesh);
+    }, undefined, function ( error ) {
 
-    const object1Video = document.getElementById("object-001-video") as HTMLVideoElement
-    const object1Texture = new THREE.VideoTexture(object1Video)
+        console.error( error );
 
-    const foregroundMaterial = new THREE.MeshPhongMaterial({
-        map: rgbTexture, displacementMap: depthTexture,
-        alphaMap: object1Texture, transparent: true,
-        displacementScale: displacementScale, displacementBias: displacementBias, flatShading: true, toneMapped: false
-    })
-    const foregroundMesh = new THREE.Mesh(geometry, foregroundMaterial);
-    scene.add(foregroundMesh);
+    } );
 
-    camera.position.z = 5;
+    loader.load( 'scene3d_bg/model.gltf', function ( gltf ) {
+
+        for (const mesh of gltf.scene.children[0].children as unknown as Array<THREE.Mesh>) {
+            mesh.material = new THREE.MeshBasicMaterial({map: (mesh.material as THREE.MeshStandardMaterial).map})
+            scene.add(mesh)
+        }
+
+        console.log(gltf)
+
+    }, undefined, function ( error ) {
+
+        console.error( error );
+
+    } );
+
+    camera.position.z = -1;
 
     renderer.setAnimationLoop(function () {
         stats.begin()
+
+        timeSinceLastMeshSwap += clock.getDelta();
+
+        if (timeSinceLastMeshSwap > swapMeshInterval && meshes.length > 0) {
+            timeSinceLastMeshSwap = 0.0;
+            scene.remove(meshes[currentMeshIndex]);
+
+            currentMeshIndex++;
+            currentMeshIndex = currentMeshIndex % meshes.length
+            scene.add(meshes[currentMeshIndex])
+        }
 
         renderer.render(scene, camera);
 
