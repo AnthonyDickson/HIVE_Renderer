@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="node-16" type="docker-deploy" factoryName="dockerfile" server-name="Docker">
+  <configuration default="false" name="node-16" type="docker-deploy" factoryName="dockerfile">
     <deployment type="dockerfile">
       <settings>
-        <option name="imageTag" value="node-16:latest" />
+        <option name="imageTag" value="eight0153/webxr3dvideo:node-16" />
         <option name="containerName" value="node-16" />
         <option name="portBindings">
           <list>

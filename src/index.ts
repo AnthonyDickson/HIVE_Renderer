@@ -39,6 +39,7 @@ function init() {
     let meshes = [];
     let currentMeshIndex = 0;
     let timeSinceLastMeshSwap = 0.0;
+    // TODO: Load framerate from disk.
     const swapMeshInterval = 1.0 / 30.0; // seconds
     const clock = new THREE.Clock()
     clock.start()
