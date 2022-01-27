@@ -25,7 +25,7 @@ The web page works best with the Mozilla Firefox web browser.
    # If you are running the local dev environment
     npm run build
    # OR if you are running the docker dev environment
-   docker run --rm -v $(pwd)/src:/app/src:ro -v $(pwd)/docs:/app/docs node-16:latest build
+   docker run --rm -v $(pwd)/src:/app/src:ro -v $(pwd)/docs:/app/docs eight0153/webxr3dvideo:node-16 build
     # Add the new javascript files
     git add docs/index* 
     # (Optional) if you added video

@@ -1,7 +1,7 @@
 // @ts-ignore
 import * as THREE from 'three';
 // @ts-ignore
-import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
+import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 // @ts-ignore
 import Stats from "three/examples/jsm/libs/stats.module.js";
 // @ts-ignore
@@ -29,7 +29,13 @@ function init() {
     stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
     document.body.appendChild(stats.dom);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
+    camera.position.z -= 5
+
+    const controls = new TrackballControls( camera, renderer.domElement );
+
+    controls.rotateSpeed = 1.0;
+    controls.zoomSpeed = 1.0;
+    controls.panSpeed = 0.8;
 
     scene.add(new THREE.AmbientLight(0xffffff));
     let directionalLight = new THREE.DirectionalLight(0xffffff, 100);
@@ -37,14 +43,11 @@ function init() {
     scene.add(directionalLight)
 
     const loader = new GLTFLoader();
-    let meshes = [];
-    let currentMeshIndex = 0;
     let timeSinceLastMeshSwap = 0.0;
     // TODO: Load framerate from disk.
     const swapMeshInterval = 1.0 / 30.0; // seconds
     const clock = new THREE.Clock()
     clock.start()
-    console.log(currentMeshIndex)
 
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
@@ -53,20 +56,59 @@ function init() {
     if (urlParams.has('video')) {
         videoBaseFolder = urlParams.get('video')
     } else {
-        videoBaseFolder = 'scene3d'
+        videoBaseFolder = '.'
     }
+
+    const frames = {}
+    let currentFrameIndex = -1
+    let numFrames = -1
+    const loaderGUI = document.getElementById("loader-overlay")
+    const rendererGUI = document.getElementById("container")
+
+    const showLoader = () => {
+        loaderGUI.style.display = 'block'
+        rendererGUI.style.display = 'none'
+    }
+
+    const hideLoader = () => {
+        loaderGUI.style.display = 'none'
+        rendererGUI.style.display = 'block'
+    }
+
+    let isFGLoaded = false
+    let isBGLoaded = false
+
+    showLoader()
 
     loader.load( `${videoBaseFolder}/scene3d/model.gltf`, function ( gltf ) {
         console.log(gltf)
         console.log(gltf.scene.children[0].children as unknown as Array<THREE.Mesh>)
 
         for (const mesh of gltf.scene.children[0].children as unknown as Array<THREE.Mesh>) {
-            mesh.material = new THREE.MeshBasicMaterial({map: (mesh.material as THREE.MeshStandardMaterial).map})
-            meshes.push(mesh)
+            // Objects will either of type "Mesh" or "Object3D". The latter occurs when there is no mesh.
+            if (mesh.type == "Mesh") {
+                mesh.material = new THREE.MeshBasicMaterial({map: (mesh.material as THREE.MeshStandardMaterial).map})
 
+                const frame_number = parseInt(mesh.name)
+                frames[frame_number] = mesh
+
+                if (currentFrameIndex < 0) {
+                    currentFrameIndex = frame_number
+                }
+
+                if (frame_number > numFrames) {
+                    numFrames = frame_number
+                }
+            }
         }
 
-        scene.add(meshes[currentMeshIndex])
+        scene.add(frames[currentFrameIndex])
+
+        isFGLoaded = true
+
+        if (isBGLoaded) {
+            hideLoader()
+        }
 
     }, undefined, function ( error ) {
 
@@ -84,28 +126,40 @@ function init() {
 
         console.log(gltf)
 
+        isBGLoaded = true
+
+        if (isFGLoaded) {
+            hideLoader()
+        }
+
+
     }, undefined, function ( error ) {
 
         console.error( error );
 
     } );
 
-    camera.position.z = -1
-
     renderer.setAnimationLoop(function () {
         stats.begin()
 
         timeSinceLastMeshSwap += clock.getDelta();
 
-        if (timeSinceLastMeshSwap > swapMeshInterval && meshes.length > 0) {
-        timeSinceLastMeshSwap = 0.0;
-        scene.remove(meshes[currentMeshIndex]);
+        if (timeSinceLastMeshSwap > swapMeshInterval && numFrames > 0) {
+            timeSinceLastMeshSwap = 0.0;
 
-        currentMeshIndex++;
-        currentMeshIndex = currentMeshIndex % meshes.length
-        scene.add(meshes[currentMeshIndex])
+            const previousFrameIndex = currentFrameIndex
+            currentFrameIndex = (currentFrameIndex + 1) % numFrames
+
+            if (frames.hasOwnProperty(previousFrameIndex)) {
+                scene.remove(frames[previousFrameIndex]);
+            }
+
+            if (frames.hasOwnProperty(currentFrameIndex)) {
+                scene.add(frames[currentFrameIndex])
+            }
         }
 
+        controls.update()
         renderer.render(scene, camera);
 
         stats.end()
