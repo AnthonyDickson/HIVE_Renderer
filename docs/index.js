@@ -55722,7 +55722,7 @@ class MeshVideo {
         this.frames = {};
     }
     load() {
-        this.loader.load(`${this.videoBaseFolder}/${this.sceneName}/model.gltf`, (gltf) => {
+        this.loader.load(`${this.videoBaseFolder}/${this.sceneName}.glb`, (gltf) => {
             console.log(gltf);
             console.log(gltf.scene.children[0].children);
             for (const mesh of gltf.scene.children[0].children) {
@@ -55820,16 +55820,16 @@ function init() {
     loadMetadata().then(metadata => {
         const loader = new three_examples_jsm_loaders_GLTFLoader_js__WEBPACK_IMPORTED_MODULE_4__["GLTFLoader"]();
         const swapMeshInterval = 1.0 / metadata["fps"]; // seconds
-        const dynamicElements = new MeshVideo({ swapMeshInterval, loader, videoBaseFolder, sceneName: "scene3d" }).load();
+        const dynamicElements = new MeshVideo({ swapMeshInterval, loader, videoBaseFolder, sceneName: "fg" }).load();
         const staticElements = new MeshVideo({
             swapMeshInterval,
             loader,
             videoBaseFolder,
-            sceneName: 'scene3d_bg',
+            sceneName: 'bg',
             useVertexColour: metadata["use_vertex_colour_for_bg"]
         }).load();
         const clock = new three__WEBPACK_IMPORTED_MODULE_0__["Clock"]();
-        renderer.setAnimationLoop(function () {
+        renderer.setAnimationLoop(() => {
             stats.begin();
             if (isLoaderShowing && dynamicElements.hasLoaded && staticElements.hasLoaded) {
                 // Ensure that the two clips will be synced

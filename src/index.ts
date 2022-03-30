@@ -43,7 +43,7 @@ class MeshVideo {
 
     load() {
         this.loader.load(
-            `${this.videoBaseFolder}/${this.sceneName}/model.gltf`,
+            `${this.videoBaseFolder}/${this.sceneName}.glb`,
             (gltf) => {
                 console.log(gltf)
                 console.log(gltf.scene.children[0].children as unknown as Array<THREE.Mesh>)
@@ -170,12 +170,12 @@ function init() {
     loadMetadata().then(metadata => {
         const loader = new GLTFLoader()
         const swapMeshInterval = 1.0 / metadata["fps"]; // seconds
-        const dynamicElements = new MeshVideo({swapMeshInterval, loader, videoBaseFolder, sceneName: "scene3d"}).load()
+        const dynamicElements = new MeshVideo({swapMeshInterval, loader, videoBaseFolder, sceneName: "fg"}).load()
         const staticElements = new MeshVideo({
             swapMeshInterval,
             loader,
             videoBaseFolder,
-            sceneName: 'scene3d_bg',
+            sceneName: 'bg',
             useVertexColour: metadata["use_vertex_colour_for_bg"]
         }).load()
 
