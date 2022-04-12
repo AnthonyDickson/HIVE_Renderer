@@ -55708,23 +55708,34 @@ window.onload = () => {
     init();
 };
 class MeshVideo {
-    constructor({ swapMeshInterval, loader, videoBaseFolder, sceneName = 'scene3d', useVertexColour = false }) {
-        this.loader = loader;
+    constructor({ swapMeshInterval, loader, videoBaseFolder, sceneName = 'scene3d', useVertexColour = false, persistFrame = false }) {
         this.videoBaseFolder = videoBaseFolder;
         this.sceneName = sceneName;
-        this.timeSinceLastMeshSwap = 0.0;
-        this.swapMeshInterval = swapMeshInterval;
-        this.useVertexColour = useVertexColour;
-        this.currentFrameIndex = -1;
-        this.numFrames = 0;
-        this.hasLoaded = false;
+        this.loader = loader;
         // @ts-ignore
         this.frames = {};
+        this.useVertexColour = useVertexColour;
+        this.persistFrame = persistFrame;
+        this.swapMeshInterval = swapMeshInterval;
+        this.reset();
+        this.numFrames = 0;
+        this.hasLoaded = false;
     }
+    // Go to the start of the video sequence.
+    reset() {
+        this.currentFrameIndex = 0;
+        this.timeSinceLastMeshSwap = 0.0;
+        this.displayedFrameIndex = null;
+    }
+    /**
+     * Load the mesh data from disk.
+     * @return A reference to this MeshVideo object.
+     *  Allows a call to this load function to be chained when creating a new instance.
+     */
     load() {
         this.loader.load(`${this.videoBaseFolder}/${this.sceneName}.glb`, (gltf) => {
-            console.log(gltf);
-            console.log(gltf.scene.children[0].children);
+            console.debug(gltf);
+            console.debug(gltf.scene.children[0].children);
             for (const mesh of gltf.scene.children[0].children) {
                 // Objects will either of type "Mesh" or "Object3D". The latter occurs when there is no mesh.
                 if (mesh.type == "Mesh") {
@@ -55743,11 +55754,18 @@ class MeshVideo {
                 }
             }
             this.hasLoaded = true;
+            const numFramesLoaded = Object.keys(this.frames).length;
+            console.info(`Loaded ${numFramesLoaded} frames for video "${this.sceneName}" in ${this.videoBaseFolder}.`);
         }, undefined, (error) => {
             console.error(error);
         });
         return this;
     }
+    /**
+     * Perform a frame update if enough time has elapsed since the last update.
+     * @param delta The time since the last call to this method.
+     * @param scene The scene object to display the mesh(es) in.
+     */
     update(delta, scene) {
         if (!this.hasLoaded) {
             return;
@@ -55755,20 +55773,37 @@ class MeshVideo {
         this.timeSinceLastMeshSwap += delta;
         if (this.timeSinceLastMeshSwap > this.swapMeshInterval && this.numFrames > 0) {
             this.timeSinceLastMeshSwap = 0.0;
-            const previousFrameIndex = this.currentFrameIndex;
-            this.currentFrameIndex = (this.currentFrameIndex + 1) % this.numFrames;
-            if (this.frames.hasOwnProperty(previousFrameIndex)) {
+            this.step(scene);
+        }
+    }
+    /**
+     * Advance one frame.
+     * @param scene The scene object to update.
+     * @private
+     */
+    step(scene) {
+        const previousFrameIndex = this.displayedFrameIndex;
+        const nextFrameIndex = this.currentFrameIndex;
+        const hasPreviousFrame = this.frames.hasOwnProperty(previousFrameIndex);
+        const hasNextFrame = this.frames.hasOwnProperty(nextFrameIndex);
+        const shouldUpdateFrame = (this.persistFrame && hasNextFrame) || !this.persistFrame;
+        if (shouldUpdateFrame) {
+            if (hasPreviousFrame) {
                 scene.remove(this.frames[previousFrameIndex]);
             }
-            if (this.frames.hasOwnProperty(this.currentFrameIndex)) {
-                scene.add(this.frames[this.currentFrameIndex]);
+            if (hasNextFrame) {
+                scene.add(this.frames[nextFrameIndex]);
+                this.displayedFrameIndex = nextFrameIndex;
             }
         }
+        this.currentFrameIndex = (this.currentFrameIndex + 1) % this.numFrames;
     }
 }
 function init() {
     const scene = new three__WEBPACK_IMPORTED_MODULE_0__["Scene"]();
     const camera = new three__WEBPACK_IMPORTED_MODULE_0__["PerspectiveCamera"](60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.lookAt(0, 0, 0);
+    camera.position.z = -5;
     const renderer = new three__WEBPACK_IMPORTED_MODULE_0__["WebGLRenderer"]();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
@@ -55779,15 +55814,10 @@ function init() {
     const stats = Object(three_examples_jsm_libs_stats_module_js__WEBPACK_IMPORTED_MODULE_2__["default"])();
     stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
     document.body.appendChild(stats.dom);
-    camera.position.z -= 5;
     const controls = new three_examples_jsm_controls_TrackballControls_js__WEBPACK_IMPORTED_MODULE_1__["TrackballControls"](camera, renderer.domElement);
     controls.rotateSpeed = 1.0;
     controls.zoomSpeed = 1.0;
     controls.panSpeed = 0.8;
-    scene.add(new three__WEBPACK_IMPORTED_MODULE_0__["AmbientLight"](0xffffff));
-    let directionalLight = new three__WEBPACK_IMPORTED_MODULE_0__["DirectionalLight"](0xffffff, 100);
-    directionalLight.position.set(1, 1, -1);
-    scene.add(directionalLight);
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
     let videoBaseFolder;
@@ -55820,13 +55850,21 @@ function init() {
     loadMetadata().then(metadata => {
         const loader = new three_examples_jsm_loaders_GLTFLoader_js__WEBPACK_IMPORTED_MODULE_4__["GLTFLoader"]();
         const swapMeshInterval = 1.0 / metadata["fps"]; // seconds
-        const dynamicElements = new MeshVideo({ swapMeshInterval, loader, videoBaseFolder, sceneName: "fg" }).load();
+        const dynamicElements = new MeshVideo({
+            swapMeshInterval,
+            loader,
+            videoBaseFolder,
+            sceneName: "fg",
+            useVertexColour: false,
+            persistFrame: false
+        }).load();
         const staticElements = new MeshVideo({
             swapMeshInterval,
             loader,
             videoBaseFolder,
             sceneName: 'bg',
-            useVertexColour: metadata["use_vertex_colour_for_bg"]
+            useVertexColour: metadata["use_vertex_colour_for_bg"],
+            persistFrame: true
         }).load();
         const clock = new three__WEBPACK_IMPORTED_MODULE_0__["Clock"]();
         renderer.setAnimationLoop(() => {
@@ -55836,8 +55874,11 @@ function init() {
                 const numFrames = Math.max(staticElements.numFrames, dynamicElements.numFrames);
                 dynamicElements.numFrames = numFrames;
                 staticElements.numFrames = numFrames;
-                clock.start();
+                dynamicElements.reset();
+                staticElements.reset();
+                scene.remove.apply(scene, scene.children);
                 hideLoader();
+                clock.start();
             }
             const delta = clock.getDelta();
             dynamicElements.update(delta, scene);
