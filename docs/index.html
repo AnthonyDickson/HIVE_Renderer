@@ -7,6 +7,13 @@
     <style>
         body {
             margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            /* This fix is needed to ensure scrollbars are not shown in FireFox (and possibly other browsers).*/
+            display: block;
         }
 
         #loader-overlay {

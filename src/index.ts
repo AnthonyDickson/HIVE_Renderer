@@ -31,7 +31,14 @@ class MeshVideo {
     public numFrames: number
     public hasLoaded: boolean
 
-    constructor({swapMeshInterval, loader, videoBaseFolder, sceneName = 'scene3d', useVertexColour = false, persistFrame = false}) {
+    constructor({
+                    swapMeshInterval,
+                    loader,
+                    videoBaseFolder,
+                    sceneName = 'scene3d',
+                    useVertexColour = false,
+                    persistFrame = false
+                }) {
         this.videoBaseFolder = videoBaseFolder
         this.sceneName = sceneName
         this.loader = loader
@@ -59,7 +66,7 @@ class MeshVideo {
      * @return A reference to this MeshVideo object.
      *  Allows a call to this load function to be chained when creating a new instance.
      */
-    load() : MeshVideo {
+    load(): MeshVideo {
         this.loader.load(
             `${this.videoBaseFolder}/${this.sceneName}.glb`,
             (gltf) => {
@@ -150,14 +157,34 @@ class MeshVideo {
     }
 }
 
-function init() {
-    const scene = new THREE.Scene()
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
-    camera.lookAt(0, 0, 0)
-    camera.position.z = -5
+class LoadingOverlay {
+    private readonly loaderGUI: HTMLElement
+    private readonly rendererGUI: HTMLElement
+    isVisible: boolean
 
+    constructor() {
+        this.loaderGUI = document.getElementById("loader-overlay")
+        this.rendererGUI = document.getElementById("container")
+        this.isVisible = false
+    }
+
+    show() {
+        this.loaderGUI.style.display = 'block'
+        this.rendererGUI.style.display = 'none'
+        this.isVisible = true
+    }
+
+    hide() {
+        this.loaderGUI.style.display = 'none'
+        this.rendererGUI.style.display = 'block'
+        this.isVisible = false
+    }
+
+}
+
+const createRenderer = (width: number, height: number): THREE.WebGLRenderer => {
     const renderer = new THREE.WebGLRenderer()
-    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.setSize(width, height)
     document.body.appendChild(renderer.domElement)
 
     renderer.setClearColor(0x000000, 1)
@@ -165,57 +192,118 @@ function init() {
     renderer.xr.setReferenceSpaceType('local')
     document.body.appendChild(VRButton.createButton(renderer))
 
-    const stats = Stats()
-    stats.showPanel(0) // 0: fps, 1: ms, 2: mb, 3+: custom
-    document.body.appendChild(stats.dom)
+    return renderer
+}
 
-
+const createControls = (camera: THREE.Camera, renderer: THREE.WebGLRenderer): TrackballControls => {
     const controls = new TrackballControls(camera, renderer.domElement)
 
     controls.rotateSpeed = 1.0
     controls.zoomSpeed = 1.0
     controls.panSpeed = 0.8
 
+    return controls
+}
+
+const createStatsPanel = (): Stats => {
+    const stats = Stats()
+    stats.showPanel(0) // 0: fps, 1: ms, 2: mb, 3+: custom
+    document.body.appendChild(stats.dom)
+
+    return stats
+}
+
+const getVideoFolder = (): string => {
     const queryString = window.location.search
     const urlParams = new URLSearchParams(queryString)
-    let videoBaseFolder: String
+    let videoFolder: string
 
     if (urlParams.has('video')) {
-        videoBaseFolder = urlParams.get('video')
+        videoFolder = urlParams.get('video')
     } else {
-        videoBaseFolder = '.'
+        videoFolder = 'demo'
     }
 
-    const loaderGUI = document.getElementById("loader-overlay")
-    const rendererGUI = document.getElementById("container")
-    let isLoaderShowing = false
+    return videoFolder
+}
 
-    const showLoader = () => {
-        loaderGUI.style.display = 'block'
-        rendererGUI.style.display = 'none'
-        isLoaderShowing = true
+async function loadMetadata(videoFolder: string) {
+    const response = await fetch(`${videoFolder}/metadata.json`)
+    return await response.json()
+}
+
+const getGroundPlane = (width: number = 1, height: number = 1, color: number = 0xffffff): THREE.Mesh => {
+    return new THREE.Mesh(
+        new THREE.PlaneGeometry(width, height),
+        new THREE.MeshBasicMaterial({color: color, side: THREE.DoubleSide})
+    ).rotateX(-Math.PI / 2)
+}
+
+const loadSkybox = (): THREE.CubeTexture => {
+    return new THREE.CubeTextureLoader()
+        .setPath('cubemaps/sky/')
+        .load([
+            'pos_x.jpg',
+            'neg_x.jpg',
+            'pos_y.jpg',
+            'neg_y.jpg',
+            'pos_z.jpg',
+            'neg_z.jpg',
+        ])
+}
+
+function init() {
+    const canvasWidth = window.innerWidth
+    const canvasHeight = window.innerHeight
+    const scene = new THREE.Scene()
+    const camera = new THREE.PerspectiveCamera(60, canvasWidth / canvasHeight, 0.1, 1000)
+    const renderer = createRenderer(canvasWidth, canvasHeight)
+    const controls = createControls(camera, renderer)
+    const stats = createStatsPanel()
+
+    const resetCamera = () => {
+        controls.reset()
+        camera.position.z = -1.5
+        camera.lookAt(0, 0, 0)
+        // Have to move the world instead of the camera to get the controls to behave correctly...
+        scene.position.y = -1.5
     }
 
-    const hideLoader = () => {
-        loaderGUI.style.display = 'none'
-        rendererGUI.style.display = 'block'
-        isLoaderShowing = false
+    const onDocumentKeyDown = (event) => {
+        const keyCode = event.which;
+        switch (keyCode) {
+            case 82: { // the key 'r'
+                resetCamera()
+                break
+            }
+            case 80: {
+                console.info(`Camera position: (${camera.position.x}, ${camera.position.y}, ${camera.position.z})`)
+                console.info(`Camera rotation: (${camera.rotation.x}, ${camera.rotation.y}, ${camera.rotation.z})`)
+                let cameraDirection = new THREE.Vector3()
+                camera.getWorldDirection(cameraDirection)
+                console.info(`Camera direction: (${cameraDirection.x}, ${cameraDirection.y}, ${cameraDirection.z})`)
+                break
+            }
+            default:
+                console.debug(`Key ${keyCode} pressed.`)
+        }
     }
+    document.addEventListener("keydown", onDocumentKeyDown, false);
 
-    showLoader()
+    const videoFolder = getVideoFolder()
+    document.title = `3D Video | ${videoFolder}`
 
-    async function loadMetadata() {
-        const response = await fetch(`${videoBaseFolder}/metadata.json`)
-        return await response.json()
-    }
+    const loadingOverlay = new LoadingOverlay()
+    loadingOverlay.show()
 
-    loadMetadata().then(metadata => {
+    loadMetadata(videoFolder).then(metadata => {
         const loader = new GLTFLoader()
         const swapMeshInterval = 1.0 / metadata["fps"] // seconds
+
         const dynamicElements = new MeshVideo({
             swapMeshInterval,
             loader,
-            videoBaseFolder,
+            videoBaseFolder: videoFolder,
             sceneName: "fg",
             useVertexColour: false,
             persistFrame: false
@@ -224,18 +312,21 @@ function init() {
         const staticElements = new MeshVideo({
             swapMeshInterval,
             loader,
-            videoBaseFolder,
+            videoBaseFolder: videoFolder,
             sceneName: 'bg',
             useVertexColour: metadata["use_vertex_colour_for_bg"],
             persistFrame: true
         }).load()
+
+        scene.add(getGroundPlane(100, 100))
+        scene.background = loadSkybox()
 
         const clock = new THREE.Clock()
 
         renderer.setAnimationLoop(() => {
             stats.begin()
 
-            if (isLoaderShowing && dynamicElements.hasLoaded && staticElements.hasLoaded) {
+            if (loadingOverlay.isVisible && dynamicElements.hasLoaded && staticElements.hasLoaded) {
                 // Ensure that the two clips will be synced
                 const numFrames = Math.max(staticElements.numFrames, dynamicElements.numFrames)
                 dynamicElements.numFrames = numFrames
@@ -244,9 +335,8 @@ function init() {
                 dynamicElements.reset()
                 staticElements.reset()
 
-                scene.remove.apply(scene, scene.children)
-
-                hideLoader()
+                resetCamera()
+                loadingOverlay.hide()
 
                 clock.start()
             }
@@ -255,7 +345,6 @@ function init() {
 
             dynamicElements.update(delta, scene)
             staticElements.update(delta, scene)
-
             controls.update()
 
             renderer.render(scene, camera)
@@ -263,4 +352,5 @@ function init() {
             stats.end()
         })
     })
+        .catch(() => alert("An error occurred when trying to load the video."))
 }

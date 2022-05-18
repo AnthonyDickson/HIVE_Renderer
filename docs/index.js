@@ -55799,61 +55799,125 @@ class MeshVideo {
         this.currentFrameIndex = (this.currentFrameIndex + 1) % this.numFrames;
     }
 }
-function init() {
-    const scene = new three__WEBPACK_IMPORTED_MODULE_0__["Scene"]();
-    const camera = new three__WEBPACK_IMPORTED_MODULE_0__["PerspectiveCamera"](60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.lookAt(0, 0, 0);
-    camera.position.z = -5;
+class LoadingOverlay {
+    constructor() {
+        this.loaderGUI = document.getElementById("loader-overlay");
+        this.rendererGUI = document.getElementById("container");
+        this.isVisible = false;
+    }
+    show() {
+        this.loaderGUI.style.display = 'block';
+        this.rendererGUI.style.display = 'none';
+        this.isVisible = true;
+    }
+    hide() {
+        this.loaderGUI.style.display = 'none';
+        this.rendererGUI.style.display = 'block';
+        this.isVisible = false;
+    }
+}
+const createRenderer = (width, height) => {
     const renderer = new three__WEBPACK_IMPORTED_MODULE_0__["WebGLRenderer"]();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(width, height);
     document.body.appendChild(renderer.domElement);
     renderer.setClearColor(0x000000, 1);
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType('local');
     document.body.appendChild(three_examples_jsm_webxr_VRButton_js__WEBPACK_IMPORTED_MODULE_3__["VRButton"].createButton(renderer));
-    const stats = Object(three_examples_jsm_libs_stats_module_js__WEBPACK_IMPORTED_MODULE_2__["default"])();
-    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-    document.body.appendChild(stats.dom);
+    return renderer;
+};
+const createControls = (camera, renderer) => {
     const controls = new three_examples_jsm_controls_TrackballControls_js__WEBPACK_IMPORTED_MODULE_1__["TrackballControls"](camera, renderer.domElement);
     controls.rotateSpeed = 1.0;
     controls.zoomSpeed = 1.0;
     controls.panSpeed = 0.8;
+    return controls;
+};
+const createStatsPanel = () => {
+    const stats = Object(three_examples_jsm_libs_stats_module_js__WEBPACK_IMPORTED_MODULE_2__["default"])();
+    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    document.body.appendChild(stats.dom);
+    return stats;
+};
+const getVideoFolder = () => {
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
-    let videoBaseFolder;
+    let videoFolder;
     if (urlParams.has('video')) {
-        videoBaseFolder = urlParams.get('video');
+        videoFolder = urlParams.get('video');
     }
     else {
-        videoBaseFolder = '.';
+        videoFolder = 'demo';
     }
-    const loaderGUI = document.getElementById("loader-overlay");
-    const rendererGUI = document.getElementById("container");
-    let isLoaderShowing = false;
-    const showLoader = () => {
-        loaderGUI.style.display = 'block';
-        rendererGUI.style.display = 'none';
-        isLoaderShowing = true;
+    return videoFolder;
+};
+function loadMetadata(videoFolder) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const response = yield fetch(`${videoFolder}/metadata.json`);
+        return yield response.json();
+    });
+}
+const getGroundPlane = (width = 1, height = 1, color = 0xffffff) => {
+    return new three__WEBPACK_IMPORTED_MODULE_0__["Mesh"](new three__WEBPACK_IMPORTED_MODULE_0__["PlaneGeometry"](width, height), new three__WEBPACK_IMPORTED_MODULE_0__["MeshBasicMaterial"]({ color: color, side: three__WEBPACK_IMPORTED_MODULE_0__["DoubleSide"] })).rotateX(-Math.PI / 2);
+};
+const loadSkybox = () => {
+    return new three__WEBPACK_IMPORTED_MODULE_0__["CubeTextureLoader"]()
+        .setPath('cubemaps/sky/')
+        .load([
+        'pos_x.jpg',
+        'neg_x.jpg',
+        'pos_y.jpg',
+        'neg_y.jpg',
+        'pos_z.jpg',
+        'neg_z.jpg',
+    ]);
+};
+function init() {
+    const canvasWidth = window.innerWidth;
+    const canvasHeight = window.innerHeight;
+    const scene = new three__WEBPACK_IMPORTED_MODULE_0__["Scene"]();
+    const camera = new three__WEBPACK_IMPORTED_MODULE_0__["PerspectiveCamera"](60, canvasWidth / canvasHeight, 0.1, 1000);
+    const renderer = createRenderer(canvasWidth, canvasHeight);
+    const controls = createControls(camera, renderer);
+    const stats = createStatsPanel();
+    const resetCamera = () => {
+        controls.reset();
+        camera.position.z = -1.5;
+        camera.lookAt(0, 0, 0);
+        // Have to move the world instead of the camera to get the controls to behave correctly...
+        scene.position.y = -1.5;
     };
-    const hideLoader = () => {
-        loaderGUI.style.display = 'none';
-        rendererGUI.style.display = 'block';
-        isLoaderShowing = false;
+    const onDocumentKeyDown = (event) => {
+        const keyCode = event.which;
+        switch (keyCode) {
+            case 82: { // the key 'r'
+                resetCamera();
+                break;
+            }
+            case 80: {
+                console.info(`Camera position: (${camera.position.x}, ${camera.position.y}, ${camera.position.z})`);
+                console.info(`Camera rotation: (${camera.rotation.x}, ${camera.rotation.y}, ${camera.rotation.z})`);
+                let cameraDirection = new three__WEBPACK_IMPORTED_MODULE_0__["Vector3"]();
+                camera.getWorldDirection(cameraDirection);
+                console.info(`Camera direction: (${cameraDirection.x}, ${cameraDirection.y}, ${cameraDirection.z})`);
+                break;
+            }
+            default:
+                console.debug(`Key ${keyCode} pressed.`);
+        }
     };
-    showLoader();
-    function loadMetadata() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const response = yield fetch(`${videoBaseFolder}/metadata.json`);
-            return yield response.json();
-        });
-    }
-    loadMetadata().then(metadata => {
+    document.addEventListener("keydown", onDocumentKeyDown, false);
+    const videoFolder = getVideoFolder();
+    document.title = `3D Video | ${videoFolder}`;
+    const loadingOverlay = new LoadingOverlay();
+    loadingOverlay.show();
+    loadMetadata(videoFolder).then(metadata => {
         const loader = new three_examples_jsm_loaders_GLTFLoader_js__WEBPACK_IMPORTED_MODULE_4__["GLTFLoader"]();
         const swapMeshInterval = 1.0 / metadata["fps"]; // seconds
         const dynamicElements = new MeshVideo({
             swapMeshInterval,
             loader,
-            videoBaseFolder,
+            videoBaseFolder: videoFolder,
             sceneName: "fg",
             useVertexColour: false,
             persistFrame: false
@@ -55861,23 +55925,25 @@ function init() {
         const staticElements = new MeshVideo({
             swapMeshInterval,
             loader,
-            videoBaseFolder,
+            videoBaseFolder: videoFolder,
             sceneName: 'bg',
             useVertexColour: metadata["use_vertex_colour_for_bg"],
             persistFrame: true
         }).load();
+        scene.add(getGroundPlane(100, 100));
+        scene.background = loadSkybox();
         const clock = new three__WEBPACK_IMPORTED_MODULE_0__["Clock"]();
         renderer.setAnimationLoop(() => {
             stats.begin();
-            if (isLoaderShowing && dynamicElements.hasLoaded && staticElements.hasLoaded) {
+            if (loadingOverlay.isVisible && dynamicElements.hasLoaded && staticElements.hasLoaded) {
                 // Ensure that the two clips will be synced
                 const numFrames = Math.max(staticElements.numFrames, dynamicElements.numFrames);
                 dynamicElements.numFrames = numFrames;
                 staticElements.numFrames = numFrames;
                 dynamicElements.reset();
                 staticElements.reset();
-                scene.remove.apply(scene, scene.children);
-                hideLoader();
+                resetCamera();
+                loadingOverlay.hide();
                 clock.start();
             }
             const delta = clock.getDelta();
@@ -55887,7 +55953,8 @@ function init() {
             renderer.render(scene, camera);
             stats.end();
         });
-    });
+    })
+        .catch(() => alert("An error occurred when trying to load the video."));
 }
 
 
