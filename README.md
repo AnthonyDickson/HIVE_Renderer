@@ -15,7 +15,7 @@ docker build -t dican732/webxr3dvideo:node-16 .
 # or pull it from docker hub:
 docker pull dican732/webxr3dvideo:node-16
 # then run it!
-docker run --rm -p 8080:8080 -v $(pwd)/src:/app/src:ro -v $(pwd)/docs:/app/docs eight0153/webxr3dvideo:node-16
+docker run --rm -p 8080:8080 -v $(pwd)/src:/app/src:ro -v $(pwd)/docs:/app/docs dican732/webxr3dvideo:node-16
 ```
 The dev server will be accessible via http://localhost:8080.
 The web page works best with the Mozilla Firefox web browser.
