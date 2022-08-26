@@ -677,8 +677,6 @@ function init() {
                 fontSize: 0.055
             } );
 
-            console.log(dynamicElements.getCurrentFrameIndex());
-
             ThreeMeshUI.update()
 
             // loading block
