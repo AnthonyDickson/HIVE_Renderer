@@ -622,7 +622,8 @@ function init() {
         
         let buttons = [
 			createButton(null, "./assets/pause.png", () => {buttonPause()}),
-            createButton(null, "./assets/stop.png", () => {buttonStop()}),
+            createButton(null, "./assets/stop.png", () => {buttonStop(), dynamicElements.clear(), dynamicElements.update(0.25, scene), 
+                staticElements.update(0.25, scene)}),
             createButton(null, "./assets/play.png", () => {buttonPlay()}),
             createButton(null, "./assets/start.png", () => {buttonStart(), dynamicElements.clear()})
 		];
@@ -635,8 +636,48 @@ function init() {
 
         scene.add(buttonGroup);
 
+        // setup information panel
+        const informationContainer = new ThreeMeshUI.Block( {
+            width: 1.2,
+            height: 0.5,
+            padding: 0.05,
+            justifyContent: 'center',
+            textAlign: 'left',
+            fontFamily: './assets/Roboto-msdf.json',
+            fontTexture: './assets/Roboto-msdf.png'
+        } );
+    
+        informationContainer.position.set( 0, 0.65, -0.2 );
+        informationContainer.rotation.x = -0.55;
+        scene.add( informationContainer );
+
+        informationContainer.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * -180);
+
+        let staticLabel = new ThreeMeshUI.Text( {
+            content: 'current frame: ',
+            fontSize: 0.055
+        })
+
+        let dynamicLabel = new ThreeMeshUI.Text( {
+            content: dynamicElements.getCurrentFrameIndex(),
+            fontSize: 0.055
+        })
+    
+        informationContainer.add(staticLabel, dynamicLabel);
+
+        let x = 0
+
         renderer.setAnimationLoop(() => {
             stats.begin()
+
+            x = dynamicElements.getCurrentFrameIndex();
+
+            dynamicLabel.set( {
+                content: '' + x,
+                fontSize: 0.055
+            } );
+
+            console.log(dynamicElements.getCurrentFrameIndex());
 
             ThreeMeshUI.update()
 
@@ -655,9 +696,9 @@ function init() {
 
                 clock.start()
 
-				// render the scene while still being paused
-				dynamicElements.update(0.25, scene)
-                staticElements.update(0.25, scene)
+				// renders the initial scene when the program is loaded
+				dynamicElements.update(0.1, scene)
+                staticElements.update(0.1, scene)
 
                 clock.stop()
             }
@@ -676,5 +717,5 @@ function init() {
             stats.end()
         })
     })
-        .catch(() => alert("An error occurred when trying to load the video."))
+    .catch(() => alert("An error occurred when trying to load the video."))
 }
