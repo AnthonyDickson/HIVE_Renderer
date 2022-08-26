@@ -106,19 +106,26 @@ class MeshVideo {
         this.hasLoaded = false
     }
 
-    // Go to the start of the video sequence.
+    /**
+     * Goes to the start of the video sequence.
+     */
     reset() {
         this.currentFrameIndex = 0
         this.timeSinceLastMeshSwap = 0.0
         this.displayedFrameIndex = null
     }
 
-    // 
+    /**
+     * A "hacky" solution to resetting the video sequence.
+     */
     clear() {
         this.currentFrameIndex = 0
     }
 
-	// Returns the current frame index.
+	/**
+     * Returns the current frame index.
+     * @return The current frame index.
+     */
 	getCurrentFrameIndex(): number {
 		return this.currentFrameIndex;
 	}
@@ -458,11 +465,15 @@ function buttonPause(){
     }
 }
 
+let stop = false;
+
 // stop button. pauses the foreground and background animation and resets
 // the current frame to the first frame in the sequence.
 function buttonStop(){
     console.log("the stop button has been clicked");
-	clock.stop();
+
+    stop = true;
+	//clock.stop();
 
     // TODO:
     // is the stop button missing functionality? should the
@@ -611,8 +622,12 @@ function init() {
             persistFrame: true
         }).load()
 
-        // add white plane as floor
-        scene.add(getGroundPlane(100, 100))
+        // create ground plane as floor
+        let ground = getGroundPlane(100, 100);
+        scene.add(ground)
+
+        // adds ground plane to controller ray interaction
+        objsToTest.push(ground);
 
         // add nice clouds as background
         scene.background = loadSkybox()
@@ -639,7 +654,7 @@ function init() {
         // setup information panel
         const informationContainer = new ThreeMeshUI.Block( {
             width: 1.2,
-            height: 0.5,
+            height: 0.2,
             padding: 0.05,
             justifyContent: 'center',
             textAlign: 'left',
@@ -654,32 +669,34 @@ function init() {
         informationContainer.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * -180);
 
         let staticLabel = new ThreeMeshUI.Text( {
-            content: 'current frame: ',
-            fontSize: 0.055
+            content: 'dynamicElements.getCurrentFrameIndex(): ',
+            fontSize: 0.05
         })
 
+        let currentFrameCounter = dynamicElements.getCurrentFrameIndex();
+
         let dynamicLabel = new ThreeMeshUI.Text( {
-            content: dynamicElements.getCurrentFrameIndex(),
-            fontSize: 0.055
+            content: '' + dynamicElements.getCurrentFrameIndex() + '\n',
+            fontSize: 0.05
         })
     
         informationContainer.add(staticLabel, dynamicLabel);
-
-        let x = 0
+        //
 
         renderer.setAnimationLoop(() => {
+
+            // displays the statistics in the top left corner
             stats.begin()
 
-            x = dynamicElements.getCurrentFrameIndex();
-
+            // updates the current frame
             dynamicLabel.set( {
-                content: '' + x,
-                fontSize: 0.055
+                content: '' + dynamicElements.getCurrentFrameIndex() + '\n',
             } );
 
+            // required to draw the interactive buttons
             ThreeMeshUI.update()
 
-            // loading block
+            // initial loading block
             if (loadingOverlay.isVisible && dynamicElements.hasLoaded && staticElements.hasLoaded) {
                 // Ensure that the two clips (fg and bg) will be synced
                 const numFrames = Math.max(staticElements.numFrames, dynamicElements.numFrames)
@@ -710,6 +727,7 @@ function init() {
 
             renderer.render(scene, camera)
 
+            // calculates the intersection of the mouse or VRcontroller and the interactive buttons
 			updateButtons()
 
             stats.end()
