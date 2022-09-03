@@ -14,7 +14,6 @@ import Stats from "three/examples/jsm/libs/stats.module.js"
 import {VRButton} from 'three/examples/jsm/webxr/VRButton.js'
 // @ts-ignore
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { Scene } from 'three';
 
 // global variables
 let vrControl, camera, renderer;
@@ -81,6 +80,8 @@ class MeshVideo {
     /** The index of the currently displayed frame (null if no frame is currently displayed). */
     private displayedFrameIndex: number
 
+    private disabled: boolean
+
     public numFrames: number
     public hasLoaded: boolean
 
@@ -105,6 +106,7 @@ class MeshVideo {
 
         this.numFrames = 0
         this.hasLoaded = false
+        this.disabled = false
     }
 
     /**
@@ -214,7 +216,13 @@ class MeshVideo {
             }
 
             if (hasNextFrame) {
-                scene.add(this.frames[nextFrameIndex])
+
+                if(this.disabled){
+
+                } else {
+                    scene.add(this.frames[nextFrameIndex])
+                }
+
                 this.displayedFrameIndex = nextFrameIndex
             } else {
                 this.displayedFrameIndex = null
@@ -249,7 +257,13 @@ class MeshVideo {
             }
 
             if (hasNextFrame) {
-                scene.add(this.frames[nextFrameIndex])
+
+                if(this.disabled){
+
+                } else {
+                    scene.add(this.frames[nextFrameIndex])
+                }
+
                 this.displayedFrameIndex = nextFrameIndex
             } else {
                 this.displayedFrameIndex = null
@@ -287,7 +301,13 @@ class MeshVideo {
             }
 
             if (hasNextFrame) {
-                scene.add(this.frames[nextFrameIndex])
+
+                if(this.disabled){
+
+                } else {
+                    scene.add(this.frames[nextFrameIndex])
+                }
+
                 this.displayedFrameIndex = nextFrameIndex
             } else {
                 this.displayedFrameIndex = null
@@ -307,6 +327,14 @@ class MeshVideo {
         this.currentFrameIndex = 0
         this.timeSinceLastMeshSwap = 0.0
         this.displayedFrameIndex = 0
+    }
+
+    disable(){
+        if(this.disabled){
+            this.disabled = false;
+        } else {
+            this.disabled = true;
+        }
     }
 }
 
@@ -738,7 +766,9 @@ function init() {
             createButton(null, "./assets/play.png", () => {buttonPlay()}),
             createButton(null, "./assets/start.png", () => {buttonStart(), dynamicElements.first(scene)}),
             createButton("advance", null, () => {buttonAdvance(), dynamicElements.advance(scene)}),
-            createButton("retreat", null, () => {buttonRetreat(), dynamicElements.retreat(scene)})
+            createButton("retreat", null, () => {buttonRetreat(), dynamicElements.retreat(scene)}),
+            createButton("show/hide fg", null, () => {dynamicElements.disable(), dynamicElements.advance(scene), dynamicElements.retreat(scene)}),
+            createButton("show/hide bg", null, () => {staticElements.disable(), staticElements.first(scene), staticElements.advance(scene), staticElements.retreat(scene)})
 		];
 		buttons.forEach(button => buttonContainer.add(button));
 		buttons.forEach(button => objsToTest.push(button));
