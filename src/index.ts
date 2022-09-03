@@ -14,6 +14,7 @@ import Stats from "three/examples/jsm/libs/stats.module.js"
 import {VRButton} from 'three/examples/jsm/webxr/VRButton.js'
 // @ts-ignore
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { Scene } from 'three';
 
 // global variables
 let vrControl, camera, renderer;
@@ -116,18 +117,13 @@ class MeshVideo {
     }
 
     /**
-     * A "hacky" solution to resetting the video sequence.
+     * Returns the index of the frame currently being displayed.
+     * Accesses for the explicit intension of providing useful information to
+     * the user and displayed in the user interface.
+     * @return The index of the frame currently being displayed.
      */
-    clear() {
-        this.currentFrameIndex = 0
-    }
-
-	/**
-     * Returns the current frame index.
-     * @return The current frame index.
-     */
-	getCurrentFrameIndex(): number {
-		return this.currentFrameIndex;
+	getDisplayedFrameIndex(): number {
+		return this.displayedFrameIndex;
 	}
 
     /**
@@ -220,10 +216,97 @@ class MeshVideo {
             if (hasNextFrame) {
                 scene.add(this.frames[nextFrameIndex])
                 this.displayedFrameIndex = nextFrameIndex
+            } else {
+                this.displayedFrameIndex = null
             }
         }
 
         this.currentFrameIndex = (this.currentFrameIndex + 1) % this.numFrames
+    }
+
+    /**
+     * Advance one frame.
+     * @param scene The scene object to update.
+     * @private
+     */
+     advance(scene: THREE.Scene) {
+
+        // the frame that is currently being displayed, ala the now old frame
+        const previousFrameIndex = this.displayedFrameIndex
+
+        // the frame to next display
+        this.currentFrameIndex = (this.currentFrameIndex + 1) % this.numFrames
+        const nextFrameIndex = this.currentFrameIndex
+
+        const hasPreviousFrame = this.frames.hasOwnProperty(previousFrameIndex)
+        const hasNextFrame = this.frames.hasOwnProperty(nextFrameIndex)
+
+        const shouldUpdateFrame = (this.persistFrame && hasNextFrame) || !this.persistFrame
+
+        if (shouldUpdateFrame) {
+            if (hasPreviousFrame) {
+                scene.remove(this.frames[previousFrameIndex])
+            }
+
+            if (hasNextFrame) {
+                scene.add(this.frames[nextFrameIndex])
+                this.displayedFrameIndex = nextFrameIndex
+            } else {
+                this.displayedFrameIndex = null
+            }
+        }
+
+    }
+
+    /**
+     * Retreat one frame.
+     * @param scene The scene object to update.
+     * @private
+     */
+     retreat(scene: THREE.Scene) {
+
+        // the frame that is currently being displayed, ala the now old frame
+        const previousFrameIndex = this.displayedFrameIndex
+
+        // the frame to next display
+        if(this.currentFrameIndex == 0){
+            this.currentFrameIndex = this.numFrames - 1;
+        } else {
+            this.currentFrameIndex = this.currentFrameIndex - 1;
+        }
+        const nextFrameIndex = this.currentFrameIndex
+
+        const hasPreviousFrame = this.frames.hasOwnProperty(previousFrameIndex)
+        const hasNextFrame = this.frames.hasOwnProperty(nextFrameIndex)
+
+        const shouldUpdateFrame = (this.persistFrame && hasNextFrame) || !this.persistFrame
+
+        if (shouldUpdateFrame) {
+            if (hasPreviousFrame) {
+                scene.remove(this.frames[previousFrameIndex])
+            }
+
+            if (hasNextFrame) {
+                scene.add(this.frames[nextFrameIndex])
+                this.displayedFrameIndex = nextFrameIndex
+            } else {
+                this.displayedFrameIndex = null
+            }
+        }
+    }
+
+    /**
+     * Resets back to the first frame.
+     * @param scene The scene object to update.
+     * @private
+     */
+    first(scene: THREE.Scene) {
+        scene.remove(this.frames[this.displayedFrameIndex])
+        scene.add(this.frames[0])
+
+        this.currentFrameIndex = 0
+        this.timeSinceLastMeshSwap = 0.0
+        this.displayedFrameIndex = 0
     }
 }
 
@@ -373,7 +456,6 @@ function createContainer(position: THREE.Vector3, xrot: number = -0.55) {
 
 // Called in the loop, get intersection with either the mouse or the VR controllers,
 // then update the buttons states according to result
-
 function updateButtons() {
 
 	// Find closest intersecting object
@@ -465,15 +547,11 @@ function buttonPause(){
     }
 }
 
-let stop = false;
-
 // stop button. pauses the foreground and background animation and resets
 // the current frame to the first frame in the sequence.
 function buttonStop(){
     console.log("the stop button has been clicked");
-
-    stop = true;
-	//clock.stop();
+	clock.stop();
 
     // TODO:
     // is the stop button missing functionality? should the
@@ -494,9 +572,28 @@ function buttonStart(){
     clock.start();
 }
 
-// onWindowResize will be called when the window is resized
-function onWindowResize() {
+/**
+ * The "advance" button. Will pause playback and advance one frame into the
+ * video sequence.
+ */
+function buttonAdvance(){
+    console.log("the advance button has been clicked");
+    clock.stop();
+}
 
+/**
+ * The "retreat" button. Will pause playback and retreat one frame back the
+ * video sequence.
+ */
+ function buttonRetreat(){
+    console.log("the retreat button has been clicked");
+    clock.stop();
+}
+
+/**
+ * A method to handle a window resizing event.
+ */
+function onWindowResize() {
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
 	renderer.setSize( window.innerWidth, window.innerHeight );
@@ -636,11 +733,12 @@ function init() {
 		let buttonContainer = createContainer(new THREE.Vector3(0, 1, 0));
         
         let buttons = [
-			createButton(null, "./assets/pause.png", () => {buttonPause()}),
-            createButton(null, "./assets/stop.png", () => {buttonStop(), dynamicElements.clear(), dynamicElements.update(0.25, scene), 
-                staticElements.update(0.25, scene)}),
+            createButton(null, "./assets/pause.png", () => {buttonPause()}),
+            createButton(null, "./assets/stop.png", () => {buttonStop(), dynamicElements.first(scene)}),
             createButton(null, "./assets/play.png", () => {buttonPlay()}),
-            createButton(null, "./assets/start.png", () => {buttonStart(), dynamicElements.clear()})
+            createButton(null, "./assets/start.png", () => {buttonStart(), dynamicElements.first(scene)}),
+            createButton("advance", null, () => {buttonAdvance(), dynamicElements.advance(scene)}),
+            createButton("retreat", null, () => {buttonRetreat(), dynamicElements.retreat(scene)})
 		];
 		buttons.forEach(button => buttonContainer.add(button));
 		buttons.forEach(button => objsToTest.push(button));
@@ -650,10 +748,11 @@ function init() {
         buttonContainer.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * -180);
 
         scene.add(buttonGroup);
+        // end of button panel setup
 
         // setup information panel
         const informationContainer = new ThreeMeshUI.Block( {
-            width: 1.2,
+            width: 1.5,
             height: 0.2,
             padding: 0.05,
             justifyContent: 'center',
@@ -664,34 +763,27 @@ function init() {
     
         informationContainer.position.set( 0, 0.65, -0.2 );
         informationContainer.rotation.x = -0.55;
-        scene.add( informationContainer );
 
         informationContainer.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * -180);
 
         let staticLabel = new ThreeMeshUI.Text( {
-            content: 'dynamicElements.getCurrentFrameIndex(): ',
+            content: 'dynamicElements.getDisplayedFrameIndex(): ',
             fontSize: 0.05
         })
 
-        let currentFrameCounter = dynamicElements.getCurrentFrameIndex();
-
         let dynamicLabel = new ThreeMeshUI.Text( {
-            content: '' + dynamicElements.getCurrentFrameIndex() + '\n',
+            content: '' + dynamicElements.getDisplayedFrameIndex() + ' / 0\n',
             fontSize: 0.05
         })
     
         informationContainer.add(staticLabel, dynamicLabel);
-        //
+        scene.add(informationContainer);
+        // end of information panel setup
 
         renderer.setAnimationLoop(() => {
 
             // displays the statistics in the top left corner
             stats.begin()
-
-            // updates the current frame
-            dynamicLabel.set( {
-                content: '' + dynamicElements.getCurrentFrameIndex() + '\n',
-            } );
 
             // required to draw the interactive buttons
             ThreeMeshUI.update()
@@ -712,11 +804,17 @@ function init() {
                 clock.start()
 
 				// renders the initial scene when the program is loaded
-				dynamicElements.update(0.1, scene)
-                staticElements.update(0.1, scene)
+				dynamicElements.first(scene)
+                staticElements.first(scene)
 
                 clock.stop()
             }
+
+            // updates the current frame
+            let total = dynamicElements.numFrames - 1;
+            dynamicLabel.set( {
+                content: '' + dynamicElements.getDisplayedFrameIndex() + ' / ' + total + '\n',
+            } );
 
             const delta = clock.getDelta()
 
