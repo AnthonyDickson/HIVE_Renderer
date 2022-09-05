@@ -952,7 +952,7 @@ function init() {
 
             if(!renderer.xr.isPresenting){
                 testLabel.set({
-                    content: 'renderer.xr.isPresenting is not presenting\n',
+                    content: 'renderer.xr.isPresenting is not currently presenting\n',
                 })
             }
 
