@@ -652,9 +652,9 @@ function init() {
     // initialise VR controllers
     vrControl = VRControl( renderer, camera, scene );
 
-    const controllers = new THREE.Group();
+    const userGroup = new THREE.Group();
 
-    controllers.add( vrControl.controllerGrips[ 0 ], vrControl.controllers[ 0 ] );
+    userGroup.add( vrControl.controllerGrips[ 0 ], vrControl.controllers[ 0 ] );
 
     vrControl.controllers[ 0 ].addEventListener( 'selectstart', () => {
 
@@ -667,7 +667,7 @@ function init() {
 
     } );
 
-    controllers.add( vrControl.controllerGrips[ 1 ], vrControl.controllers[ 1 ] );
+    userGroup.add( vrControl.controllerGrips[ 1 ], vrControl.controllers[ 1 ] );
 
     vrControl.controllers[ 1 ].addEventListener( 'selectstart', () => {
 
@@ -682,9 +682,11 @@ function init() {
 
     // since we move the scene to be "centered" on the trackball controller,
     // we need to move the controllers to match the new scene location
-    controllers.translateY(1.5);
+    userGroup.translateY(1.5);
+    userGroup.add(camera);
+    userGroup.translateZ(-1);
 
-    scene.add(controllers);
+    scene.add(userGroup);
     // end of initialising VR controllers
 
     // setup the VR camera if in VR
@@ -783,10 +785,10 @@ function init() {
         // setup information panel
         const informationContainer = new ThreeMeshUI.Block( {
             width: 1.5,
-            height: 0.2,
+            height: 0.6,
             padding: 0.05,
             justifyContent: 'center',
-            textAlign: 'left',
+            textAlign: 'center',
             fontFamily: './assets/Roboto-msdf.json',
             fontTexture: './assets/Roboto-msdf.png'
         } );
@@ -805,10 +807,94 @@ function init() {
             content: '' + dynamicElements.getDisplayedFrameIndex() + ' / 0\n',
             fontSize: 0.05
         })
+
+        let testLabel = new ThreeMeshUI.Text( {
+            content: '\n',
+            fontSize: 0.05
+        })
+
+        let cameraDirection = new THREE.Vector3()
+        camera.getWorldDirection(cameraDirection)
+
+        let cameraLabel = new ThreeMeshUI.Text( {
+            content: 
+            'camera.position.x: ' + camera.position.x + '\n' +
+            'camera.position.y: ' + camera.position.y + '\n' +
+            'camera.position.z: ' + camera.position.z + '\n' +
+
+            'camera.rotation.x: ' + camera.rotation.x + '\n' +
+            'camera.rotation.y: ' + camera.rotation.y + '\n' +
+            'camera.rotation.z: ' + camera.rotation.z + '\n' +
+
+            'cameraDirection.x: ' + cameraDirection.x + '\n' +
+            'cameraDirection.y: ' + cameraDirection.y + '\n' +
+            'cameraDirection.z: ' + cameraDirection.z + '\n',
+
+            fontSize: 0.04
+        })
+
+        function updateCameraLabel(){
+
+            if(renderer.xr.isPresenting){
+
+                /*
+                let cam = renderer.xr.getCamera()
+                cameraLabel.set({
+                    content: cam,
+                })
+
+                cam.getWorldDirection(cameraDirection)
+                cameraLabel.set( {
+                    content: 
+                    'camera.position.x: ' + cam.position.x + '\n' +
+                    'camera.position.y: ' + cam.position.y + '\n' +
+                    'camera.position.z: ' + cam.position.z + '\n' +
+
+                    'camera.rotation.x: ' + cam.rotation.x + '\n' +
+                    'camera.rotation.y: ' + cam.rotation.y + '\n' +
+                    'camera.rotation.z: ' + cam.rotation.z + '\n' +
+
+                    'cameraDirection.x: ' + cameraDirection.x + '\n' +
+                    'cameraDirection.y: ' + cameraDirection.y + '\n' +
+                    'cameraDirection.z: ' + cameraDirection.z + '\n',
+                })
+                */
+
+            } else {
+
+                camera.getWorldDirection(cameraDirection)
+                cameraLabel.set( {
+                    content: 
+                    'camera.position.x: ' + camera.position.x + '\n' +
+                    'camera.position.y: ' + camera.position.y + '\n' +
+                    'camera.position.z: ' + camera.position.z + '\n' +
+
+                    'camera.rotation.x: ' + camera.rotation.x + '\n' +
+                    'camera.rotation.y: ' + camera.rotation.y + '\n' +
+                    'camera.rotation.z: ' + camera.rotation.z + '\n' +
+
+                    'cameraDirection.x: ' + cameraDirection.x + '\n' +
+                    'cameraDirection.y: ' + cameraDirection.y + '\n' +
+                    'cameraDirection.z: ' + cameraDirection.z + '\n',
+                })
+
+            }
+
+            
+        }
+
+        let button = createButton("update", null, () => {updateCameraLabel()});
+		informationContainer.add(button);
+		objsToTest.push(button);
+        button.translateX(0.75);
     
         informationContainer.add(staticLabel, dynamicLabel);
+        informationContainer.add(testLabel);
+        informationContainer.add(cameraLabel);
         scene.add(informationContainer);
         // end of information panel setup
+        
+        let isXRCameraFixed = false;
 
         renderer.setAnimationLoop(() => {
 
@@ -854,6 +940,21 @@ function init() {
             controls.update()
 
             renderer.render(scene, camera)
+
+            // fix the initial position of the VR camera
+            if(renderer.xr.isPresenting && isXRCameraFixed == false){
+                testLabel.set({
+                    content: 'renderer.xr.isPresenting is presenting\n',
+                })
+                userGroup.rotateY(Math.PI);
+                isXRCameraFixed = true;
+            }
+
+            if(!renderer.xr.isPresenting){
+                testLabel.set({
+                    content: 'renderer.xr.isPresenting is not presenting\n',
+                })
+            }
 
             // calculates the intersection of the mouse or VRcontroller and the interactive buttons
 			updateButtons()
