@@ -946,7 +946,12 @@ function init() {
                 testLabel.set({
                     content: 'renderer.xr.isPresenting is presenting\n',
                 })
+
+                // rotates around the Y axis by 180 degrees
+                // to undo the strange initial behaviour of the WebXRManager
                 userGroup.rotateY(Math.PI);
+
+                // sets a flag so this fix will not be applied twice
                 isXRCameraFixed = true;
             }
 
