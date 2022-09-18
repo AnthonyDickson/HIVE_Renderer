@@ -14,6 +14,7 @@ import Stats from "three/examples/jsm/libs/stats.module.js"
 import {VRButton} from 'three/examples/jsm/webxr/VRButton.js'
 // @ts-ignore
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { ExitStatus } from 'typescript';
 
 // global variables
 let vrControl, camera, renderer;
