@@ -1,4 +1,7 @@
 # WebXR 3D Video
+## Prerequsites
+https://nodejs.org/en/ for local developer environment
+
 ## Getting Started
 ```shell
 # 1) Clone repo
