@@ -14,7 +14,6 @@ import Stats from "three/examples/jsm/libs/stats.module.js"
 import {VRButton} from 'three/examples/jsm/webxr/VRButton.js'
 // @ts-ignore
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { ExitStatus } from 'typescript';
 
 // global variables
 let vrControl, camera, renderer;
@@ -880,7 +879,6 @@ function init() {
                 })
 
             }
-
             
         }
 
@@ -894,28 +892,26 @@ function init() {
         informationContainer.add(cameraLabel);
         scene.add(informationContainer);
         // end of information panel setup
+
+        // start of catalogue panel setup
+		let catalogueContainer = createContainer(new THREE.Vector3(2, 1, 0));
+        
+        let catalogueButtons = [
+            createButton("1", null, () => {console.log("switched to scene 1")}),
+            createButton("2", null, () => {console.log("switched to scene 2")})
+		];
+		catalogueButtons.forEach(button => catalogueContainer.add(button));
+		catalogueButtons.forEach(button => objsToTest.push(button));
+
+        catalogueContainer.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * -180);
+
+        scene.add(catalogueContainer);
+        // end of catalogue panel setup
         
         let isXRCameraFixed = false;
 
         // test of directory thing
         //
-        //requiring path and fs modules
-        const path = require('path');
-        const fs = require('fs');
-        //joining path of directory 
-        const directoryPath = path.join(__dirname, 'Documents');
-        //passsing directoryPath and callback function
-        fs.readdir(directoryPath, function (err, files) {
-            //handling error
-            if (err) {
-                return console.log('Unable to scan directory: ' + err);
-            } 
-            //listing all files using forEach
-            files.forEach(function (file) {
-                // Do whatever you want to do with the file
-                console.log(file); 
-            });
-        });
         //
         // test of directory thing
 
