@@ -197,6 +197,14 @@ class MeshVideo {
     }
 
     /**
+     * Figures out the current scene being rendered and removes it from scene.
+     * @param scene 
+     */
+    remove(scene: THREE.Scene){
+        scene.remove(this.frames[this.displayedFrameIndex])
+    }
+
+    /**
      * Advance one frame.
      * @param scene The scene object to update.
      * @private
@@ -729,8 +737,11 @@ function init() {
         const loader = new GLTFLoader()
         const swapMeshInterval = 1.0 / metadata["fps"] // seconds
 
+        // list all files in meshVideo here and dynamically create enough
+        // mesh video objects to store all of the scenes data
+
         // loads the dynamic elements aka foreground
-        const dynamicElements = new MeshVideo({
+        const demoDynamicElements = new MeshVideo({
             swapMeshInterval,
             loader,
             videoBaseFolder: videoFolder,
@@ -740,14 +751,37 @@ function init() {
         }).load()
 
         // loads the static elements aka background
-        const staticElements = new MeshVideo({
+        const demoStaticElements = new MeshVideo({
             swapMeshInterval,
             loader,
             videoBaseFolder: videoFolder,
-            sceneName: 'bg',
+            sceneName: "bg",
             useVertexColour: metadata["use_vertex_colour_for_bg"],
             persistFrame: true
         }).load()
+
+        // loads the dynamic elements aka foreground
+        const testDynamicElements = new MeshVideo({
+            swapMeshInterval,
+            loader,
+            videoBaseFolder: videoFolder,
+            sceneName: "fgtest",
+            useVertexColour: false,
+            persistFrame: false
+        }).load()
+
+        // loads the static elements aka background
+        const testStaticElements = new MeshVideo({
+            swapMeshInterval,
+            loader,
+            videoBaseFolder: videoFolder,
+            sceneName: "bgtest",
+            useVertexColour: metadata["use_vertex_colour_for_bg"],
+            persistFrame: true
+        }).load()
+
+        var dynamicElements = demoDynamicElements
+        var staticElements = demoStaticElements
 
         // create ground plane as floor
         let ground = getGroundPlane(100, 100);
@@ -770,7 +804,7 @@ function init() {
             createButton("advance", null, () => {buttonAdvance(), dynamicElements.advance(scene)}),
             createButton("retreat", null, () => {buttonRetreat(), dynamicElements.retreat(scene)}),
             createButton("show/hide fg", null, () => {dynamicElements.disable(), dynamicElements.advance(scene), dynamicElements.retreat(scene)}),
-            createButton("show/hide bg", null, () => {staticElements.disable(), staticElements.first(scene), staticElements.advance(scene), staticElements.retreat(scene)})
+            createButton("show/hide bg", null, () => {staticElements.disable(), staticElements.advance(scene), staticElements.retreat(scene)})
 		];
 		buttons.forEach(button => buttonContainer.add(button));
 		buttons.forEach(button => objsToTest.push(button));
@@ -895,10 +929,28 @@ function init() {
 
         // start of catalogue panel setup
 		let catalogueContainer = createContainer(new THREE.Vector3(2, 1, 0));
+
+        function switchToScene1(){
+            dynamicElements = demoDynamicElements
+            staticElements = demoStaticElements
+            console.log("switched to scene 1")
+        }
+        
+        function switchToScene2(){
+            dynamicElements = testDynamicElements
+            staticElements = testStaticElements
+            console.log("switched to scene 2")
+        }
         
         let catalogueButtons = [
-            createButton("1", null, () => {console.log("switched to scene 1")}),
-            createButton("2", null, () => {console.log("switched to scene 2")})
+            createButton("1", null, () => { dynamicElements.remove(scene), staticElements.remove(scene), 
+                                            switchToScene1(),
+                                            buttonStop(),
+                                            dynamicElements.first(scene), staticElements.first(scene)}),
+            createButton("2", null, () => { dynamicElements.remove(scene), staticElements.remove(scene),
+                                            switchToScene2(),
+                                            buttonStop(),
+                                            dynamicElements.first(scene), staticElements.first(scene)})
 		];
 		catalogueButtons.forEach(button => catalogueContainer.add(button));
 		catalogueButtons.forEach(button => objsToTest.push(button));
@@ -945,11 +997,13 @@ function init() {
                 clock.stop()
             }
 
+            /* debug
             // updates the current frame
             let total = dynamicElements.numFrames - 1;
             dynamicLabel.set( {
                 content: '' + dynamicElements.getDisplayedFrameIndex() + ' / ' + total + '\n',
             } );
+            */
 
             const delta = clock.getDelta()
 
@@ -960,6 +1014,7 @@ function init() {
 
             renderer.render(scene, camera)
 
+            /* debug statements
             // fix the initial position of the VR camera
             if(renderer.xr.isPresenting && isXRCameraFixed == false){
                 testLabel.set({
@@ -978,7 +1033,7 @@ function init() {
                 testLabel.set({
                     content: 'renderer.xr.isPresenting is not currently presenting\n',
                 })
-            }
+            } */
 
             // calculates the intersection of the mouse or VRcontroller and the interactive buttons
 			updateButtons()
