@@ -229,9 +229,9 @@ class MeshVideo {
 
                 } else {
                     scene.add(this.frames[nextFrameIndex])
+                    this.displayedFrameIndex = nextFrameIndex
                 }
 
-                this.displayedFrameIndex = nextFrameIndex
             } else {
                 this.displayedFrameIndex = null
             }
@@ -740,8 +740,11 @@ function init() {
         // list all files in meshVideo here and dynamically create enough
         // mesh video objects to store all of the scenes data
 
+        var dynamicElements
+        var staticElements
+
         // loads the dynamic elements aka foreground
-        const demoDynamicElements = new MeshVideo({
+        dynamicElements = new MeshVideo({
             swapMeshInterval,
             loader,
             videoBaseFolder: videoFolder,
@@ -751,7 +754,7 @@ function init() {
         }).load()
 
         // loads the static elements aka background
-        const demoStaticElements = new MeshVideo({
+        staticElements = new MeshVideo({
             swapMeshInterval,
             loader,
             videoBaseFolder: videoFolder,
@@ -759,29 +762,6 @@ function init() {
             useVertexColour: metadata["use_vertex_colour_for_bg"],
             persistFrame: true
         }).load()
-
-        // loads the dynamic elements aka foreground
-        const testDynamicElements = new MeshVideo({
-            swapMeshInterval,
-            loader,
-            videoBaseFolder: videoFolder,
-            sceneName: "fgtest",
-            useVertexColour: false,
-            persistFrame: false
-        }).load()
-
-        // loads the static elements aka background
-        const testStaticElements = new MeshVideo({
-            swapMeshInterval,
-            loader,
-            videoBaseFolder: videoFolder,
-            sceneName: "bgtest",
-            useVertexColour: metadata["use_vertex_colour_for_bg"],
-            persistFrame: true
-        }).load()
-
-        var dynamicElements = demoDynamicElements
-        var staticElements = demoStaticElements
 
         // create ground plane as floor
         let ground = getGroundPlane(100, 100);
@@ -804,7 +784,7 @@ function init() {
             createButton("advance", null, () => {buttonAdvance(), dynamicElements.advance(scene)}),
             createButton("retreat", null, () => {buttonRetreat(), dynamicElements.retreat(scene)}),
             createButton("show/hide fg", null, () => {dynamicElements.disable(), dynamicElements.advance(scene), dynamicElements.retreat(scene)}),
-            createButton("show/hide bg", null, () => {staticElements.disable(), staticElements.advance(scene), staticElements.retreat(scene)})
+            createButton("show/hide bg", null, () => {staticElements.disable(), staticElements.first(scene), staticElements.advance(scene), staticElements.retreat(scene)})
 		];
 		buttons.forEach(button => buttonContainer.add(button));
 		buttons.forEach(button => objsToTest.push(button));
@@ -871,28 +851,7 @@ function init() {
 
             if(renderer.xr.isPresenting){
 
-                /*
-                let cam = renderer.xr.getCamera()
-                cameraLabel.set({
-                    content: cam,
-                })
-
-                cam.getWorldDirection(cameraDirection)
-                cameraLabel.set( {
-                    content: 
-                    'camera.position.x: ' + cam.position.x + '\n' +
-                    'camera.position.y: ' + cam.position.y + '\n' +
-                    'camera.position.z: ' + cam.position.z + '\n' +
-
-                    'camera.rotation.x: ' + cam.rotation.x + '\n' +
-                    'camera.rotation.y: ' + cam.rotation.y + '\n' +
-                    'camera.rotation.z: ' + cam.rotation.z + '\n' +
-
-                    'cameraDirection.x: ' + cameraDirection.x + '\n' +
-                    'cameraDirection.y: ' + cameraDirection.y + '\n' +
-                    'cameraDirection.z: ' + cameraDirection.z + '\n',
-                })
-                */
+                // try to get the statistics from the VR camera object
 
             } else {
 
@@ -913,7 +872,7 @@ function init() {
                 })
 
             }
-            
+
         }
 
         let button = createButton("update", null, () => {updateCameraLabel()});
@@ -930,27 +889,39 @@ function init() {
         // start of catalogue panel setup
 		let catalogueContainer = createContainer(new THREE.Vector3(2, 1, 0));
 
-        function switchToScene1(){
-            dynamicElements = demoDynamicElements
-            staticElements = demoStaticElements
-            console.log("switched to scene 1")
-        }
-        
-        function switchToScene2(){
-            dynamicElements = testDynamicElements
-            staticElements = testStaticElements
-            console.log("switched to scene 2")
+        function switchToScene(dynamicElementsSceneName: string, staticElementsSceneName: string, scene: THREE.Scene){
+
+            dynamicElements.remove(scene)
+            staticElements.remove(scene)
+
+            // loads the dynamic elements aka foreground
+            dynamicElements = new MeshVideo({
+                swapMeshInterval,
+                loader,
+                videoBaseFolder: videoFolder,
+                sceneName: dynamicElementsSceneName,
+                useVertexColour: false,
+                persistFrame: false
+            }).load()
+
+            // loads the static elements aka background
+            staticElements = new MeshVideo({
+                swapMeshInterval,
+                loader,
+                videoBaseFolder: videoFolder,
+                sceneName: staticElementsSceneName,
+                useVertexColour: metadata["use_vertex_colour_for_bg"],
+                persistFrame: true
+            }).load()
+
+            loadingOverlay.show()
+
+            console.log("switched to scene:", dynamicElementsSceneName, staticElementsSceneName)
         }
         
         let catalogueButtons = [
-            createButton("1", null, () => { dynamicElements.remove(scene), staticElements.remove(scene), 
-                                            switchToScene1(),
-                                            buttonStop(),
-                                            dynamicElements.first(scene), staticElements.first(scene)}),
-            createButton("2", null, () => { dynamicElements.remove(scene), staticElements.remove(scene),
-                                            switchToScene2(),
-                                            buttonStop(),
-                                            dynamicElements.first(scene), staticElements.first(scene)})
+            createButton("1", null, () => { switchToScene("fg", "bg", scene) }),
+            createButton("2", null, () => { switchToScene("fgtest", "bgtest", scene) })
 		];
 		catalogueButtons.forEach(button => catalogueContainer.add(button));
 		catalogueButtons.forEach(button => objsToTest.push(button));
@@ -961,11 +932,6 @@ function init() {
         // end of catalogue panel setup
         
         let isXRCameraFixed = false;
-
-        // test of directory thing
-        //
-        //
-        // test of directory thing
 
         renderer.setAnimationLoop(() => {
 
@@ -997,13 +963,10 @@ function init() {
                 clock.stop()
             }
 
-            /* debug
-            // updates the current frame
-            let total = dynamicElements.numFrames - 1;
+            // debug - updates the current frame
             dynamicLabel.set( {
-                content: '' + dynamicElements.getDisplayedFrameIndex() + ' / ' + total + '\n',
+                content: '' + dynamicElements.getDisplayedFrameIndex() + ' / ' + (dynamicElements.numFrames - 1) + '\n',
             } );
-            */
 
             const delta = clock.getDelta()
 
@@ -1014,7 +977,6 @@ function init() {
 
             renderer.render(scene, camera)
 
-            /* debug statements
             // fix the initial position of the VR camera
             if(renderer.xr.isPresenting && isXRCameraFixed == false){
                 testLabel.set({
@@ -1028,12 +990,6 @@ function init() {
                 // sets a flag so this fix will not be applied twice
                 isXRCameraFixed = true;
             }
-
-            if(!renderer.xr.isPresenting){
-                testLabel.set({
-                    content: 'renderer.xr.isPresenting is not currently presenting\n',
-                })
-            } */
 
             // calculates the intersection of the mouse or VRcontroller and the interactive buttons
 			updateButtons()
