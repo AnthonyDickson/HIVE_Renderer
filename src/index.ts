@@ -963,10 +963,12 @@ function init() {
                 clock.stop()
             }
 
+            /*
             // debug - updates the current frame
             dynamicLabel.set( {
                 content: '' + dynamicElements.getDisplayedFrameIndex() + ' / ' + (dynamicElements.numFrames - 1) + '\n',
             } );
+            */
 
             const delta = clock.getDelta()
 
