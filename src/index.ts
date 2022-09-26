@@ -921,8 +921,8 @@ function init() {
         
         let catalogueButtons = [
             createButton("1", null, () => { switchToScene("fg", "bg", scene) }),
-            createButton("2", null, () => { switchToScene("fg_swing", "bg_swing", scene) }),
-            createButton("3", null, () => { switchToScene("fg_swing_mp4", "bg_swing_mp4", scene) })
+            createButton("swing", null, () => { switchToScene("fg_swing", "bg_swing", scene) }),
+            createButton("swingmp4", null, () => { switchToScene("fg_swing_mp4", "bg_swing_mp4", scene) })
 		];
 		catalogueButtons.forEach(button => catalogueContainer.add(button));
 		catalogueButtons.forEach(button => objsToTest.push(button));
