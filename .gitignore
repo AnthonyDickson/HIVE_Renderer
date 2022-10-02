@@ -4,6 +4,3 @@ node_modules/
 .DS_STORE
 Session.vim
 /video/dance/
-docs/demo/fgtest.glb
-docs/demo/bgtest.glb
-*.glb
