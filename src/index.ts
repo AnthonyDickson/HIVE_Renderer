@@ -975,7 +975,11 @@ function init() {
 
 			dynamicElements.update(delta, scene)
             staticElements.update(delta, scene)
-            
+
+            // -1.375867029316016873e-20 -3.155602546952746779e-18 1.585822749035070325e-19 1.000000000000000000e+00 0.000000000000000000e+00 0.000000000000000000e+00 0.000000000000000000e+00
+            camera.position.set(1, 10, 1)
+            camera.
+
             controls.update()
 
             renderer.render(scene, camera)
