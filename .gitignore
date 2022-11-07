@@ -4,7 +4,9 @@ node_modules/
 .DS_STORE
 Session.vim
 /video/dance/
+
 docs/demo/bg_estimated_walking.glb
 docs/demo/bg_ground_truth_walking.glb
 docs/demo/fg_estimated_walking.glb
 docs/demo/fg_ground_truth_walking.glb
+camera_trajectory_output.txt
