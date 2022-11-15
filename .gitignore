@@ -10,3 +10,6 @@ docs/demo/bg_ground_truth_walking.glb
 docs/demo/fg_estimated_walking.glb
 docs/demo/fg_ground_truth_walking.glb
 camera_trajectory_output.txt
+
+docs/demo/abg.glb
+docs/demo/afg.glb
