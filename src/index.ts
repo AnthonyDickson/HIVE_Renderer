@@ -1725,8 +1725,8 @@ function createContainer(position: THREE.Vector3, xrot: number = -0.55) {
         justifyContent: 'center',
         alignContent: 'center',
         contentDirection: 'row-reverse',
-        fontFamily: './assets/Roboto-msdf.json',
-        fontTexture: './assets/Roboto-msdf.png',
+        fontFamily: 'assets/Roboto-msdf.json',
+        fontTexture: 'assets/Roboto-msdf.png',
         fontSize: 0.07,
         padding: 0.02,
         borderRadius: 0.11
@@ -1818,59 +1818,11 @@ function raycast() {
 
 }
 
-// pause button. if the video is currently playing, pause the playback, if 
-// the video is currently paused, resume playback.
-function buttonPause(){
-    console.log("the pause button has been clicked");
-
-    if(clock.running) {
-        clock.stop();
-    } else {
-        clock.start();
-    }
-}
-
-// stop button. pauses the foreground and background animation and resets
-// the current frame to the first frame in the sequence.
-function buttonStop(){
-    console.log("the stop button has been clicked");
-	clock.stop();
-
-    // TODO:
-    // is the stop button missing functionality? should the
-    // stop button reset the current animation back to the beginning?
-}
-
 // play button. if the animation is paused, resume the playback, otherwise
 // do nothing!
 function buttonPlay(){
     console.log("the play button has been clicked");
     clock.start();
-}
-
-// start button. resets the current frame to the first frame in the sequence
-// and plays
-function buttonStart(){
-    console.log("the start button has been clicked");
-    clock.start();
-}
-
-/**
- * The "advance" button. Will pause playback and advance one frame into the
- * video sequence.
- */
-function buttonAdvance(){
-    console.log("the advance button has been clicked");
-    clock.stop();
-}
-
-/**
- * The "retreat" button. Will pause playback and retreat one frame back the
- * video sequence.
- */
- function buttonRetreat(){
-    console.log("the retreat button has been clicked");
-    clock.stop();
 }
 
 /**
@@ -2022,29 +1974,6 @@ function init() {
         // add nice clouds as background
         scene.background = loadSkybox()
 
-        // setup the button panel
-		let buttonContainer = createContainer(new THREE.Vector3(0, 1, 0));
-        
-        let buttons = [
-            //createButton(null, "./assets/pause.png", () => {buttonPause()}),
-            //createButton(null, "./assets/stop.png", () => {buttonStop(), dynamicElements.first(scene)}),
-            createButton(null, "./assets/play.png", () => {buttonPlay()}),
-            //createButton(null, "./assets/start.png", () => {buttonStart(), dynamicElements.first(scene)}),
-            //createButton("advance", null, () => {buttonAdvance(), dynamicElements.advance(scene)}),
-            //createButton("retreat", null, () => {buttonRetreat(), dynamicElements.retreat(scene)}),
-            //createButton("show/hide fg", null, () => {dynamicElements.disable(), dynamicElements.advance(scene), dynamicElements.retreat(scene)}),
-            //createButton("show/hide bg", null, () => {staticElements.disable(), staticElements.first(scene), staticElements.advance(scene), staticElements.retreat(scene)})
-		];
-		buttons.forEach(button => buttonContainer.add(button));
-		buttons.forEach(button => objsToTest.push(button));
-
-        let buttonGroup = new THREE.Group();
-        buttonGroup.add(buttonContainer);
-        buttonContainer.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), THREE.MathUtils.DEG2RAD * -180);
-
-        //scene.add(buttonGroup);
-        // end of button panel setup
-
         // setup information panel
         const informationContainer = new ThreeMeshUI.Block( {
             width: 1.5,
@@ -2052,8 +1981,8 @@ function init() {
             padding: 0.05,
             justifyContent: 'center',
             textAlign: 'center',
-            fontFamily: './assets/Roboto-msdf.json',
-            fontTexture: './assets/Roboto-msdf.png'
+            fontFamily: 'assets/Roboto-msdf.json',
+            fontTexture: 'assets/Roboto-msdf.png'
         } );
     
         informationContainer.position.set( 0, 0.65, -0.2 );
@@ -2180,8 +2109,6 @@ function init() {
 
         //scene.add(catalogueContainer);
         // end of catalogue panel setup
-        
-        let isXRCameraFixed = false;
 
         renderer.setAnimationLoop(() => {
 
@@ -2206,19 +2133,30 @@ function init() {
 
                 clock.start()
 
-				// renders the initial scene when the program is loaded
 				dynamicElements.first(scene)
                 staticElements.first(scene)
 
-                //clock.stop()
-            }
+                // we load the camera_trajectory from file
+                //
+                // camera_trajectory must be placed here: "demo/camera_trajectory.txt"
+                THREE.Cache.enabled = true;
+                var test_load = new THREE.FileLoader();
 
-            /*
-            // debug - updates the current frame
-            dynamicLabel.set( {
-                content: '' + dynamicElements.getDisplayedFrameIndex() + ' / ' + (dynamicElements.numFrames - 1) + '\n',
-            } );
-            */
+                var camera_trajectory = null
+
+                //load a text file and output the result to the console
+                test_load.load(
+                    // resource URL
+                    "demo/camera_trajectory.txt",
+
+                    // onLoad callback
+                    function ( data ) {
+                        camera_trajectory = data
+                    },
+                );
+
+                console.log(camera_trajectory)
+            }
 
             const delta = clock.getDelta()
 
