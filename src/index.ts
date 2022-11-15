@@ -478,8 +478,8 @@ function createContainer(position: THREE.Vector3, xrot: number = -0.55) {
         justifyContent: 'center',
         alignContent: 'center',
         contentDirection: 'row-reverse',
-        fontFamily: './assets/Roboto-msdf.json',
-        fontTexture: './assets/Roboto-msdf.png',
+        fontFamily: 'assets/Roboto-msdf.json',
+        fontTexture: 'assets/Roboto-msdf.png',
         fontSize: 0.07,
         padding: 0.02,
         borderRadius: 0.11
@@ -777,10 +777,10 @@ function init() {
 		let buttonContainer = createContainer(new THREE.Vector3(0, 1, 0));
         
         let buttons = [
-            createButton("pause", null, () => {buttonPause()}),
-            createButton("stop", null, () => {buttonStop(), dynamicElements.first(scene)}),
-            createButton("play", null, () => {buttonPlay()}),
-            createButton("start", null, () => {buttonStart(), dynamicElements.first(scene)}),
+            createButton("pause", "assets/pause.png", () => {buttonPause()}),
+            createButton("stop", "assets/stop.png", () => {buttonStop(), dynamicElements.first(scene)}),
+            createButton("play", "assets/play.png", () => {buttonPlay()}),
+            createButton("start", "assets/start.png", () => {buttonStart(), dynamicElements.first(scene)}),
             createButton("advance", null, () => {buttonAdvance(), dynamicElements.advance(scene)}),
             createButton("retreat", null, () => {buttonRetreat(), dynamicElements.retreat(scene)}),
             createButton("show/hide fg", null, () => {dynamicElements.disable(), dynamicElements.advance(scene), dynamicElements.retreat(scene)}),
@@ -803,8 +803,8 @@ function init() {
             padding: 0.05,
             justifyContent: 'center',
             textAlign: 'center',
-            fontFamily: './assets/Roboto-msdf.json',
-            fontTexture: './assets/Roboto-msdf.png'
+            fontFamily: 'assets/Roboto-msdf.json',
+            fontTexture: 'assets/Roboto-msdf.png'
         } );
     
         informationContainer.position.set( 0, 0.65, -0.2 );
