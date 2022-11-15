@@ -777,10 +777,10 @@ function init() {
 		let buttonContainer = createContainer(new THREE.Vector3(0, 1, 0));
         
         let buttons = [
-            createButton(null, "./assets/pause.png", () => {buttonPause()}),
-            createButton(null, "./assets/stop.png", () => {buttonStop(), dynamicElements.first(scene)}),
-            createButton(null, "./assets/play.png", () => {buttonPlay()}),
-            createButton(null, "./assets/start.png", () => {buttonStart(), dynamicElements.first(scene)}),
+            createButton("pause", null, () => {buttonPause()}),
+            createButton("stop", null, () => {buttonStop(), dynamicElements.first(scene)}),
+            createButton("play", null, () => {buttonPlay()}),
+            createButton("start", null, () => {buttonStart(), dynamicElements.first(scene)}),
             createButton("advance", null, () => {buttonAdvance(), dynamicElements.advance(scene)}),
             createButton("retreat", null, () => {buttonRetreat(), dynamicElements.retreat(scene)}),
             createButton("show/hide fg", null, () => {dynamicElements.disable(), dynamicElements.advance(scene), dynamicElements.retreat(scene)}),
