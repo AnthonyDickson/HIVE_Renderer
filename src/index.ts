@@ -213,9 +213,15 @@ class MeshVideo {
 
             this.step(scene)
 
-            camera.position.set(this.trajectories[this.currentFrameIndex][0], this.trajectories[this.currentFrameIndex][1], this.trajectories[this.currentFrameIndex][2])
+            if(this.trajectories.length == 0){
+                for(let i = 0; i <= this.numFrames; i++){
+                    this.trajectories.push([0, 0, 0, 1, 0, 0, 0])
+                }
+            }
+                
+            camera.position.set(this.trajectories[this.currentFrameIndex][0], this.trajectories[this.currentFrameIndex][1], this.trajectories[this.currentFrameIndex][2]) 
             camera.setRotationFromQuaternion(new THREE.Quaternion(this.trajectories[this.currentFrameIndex][3], this.trajectories[this.currentFrameIndex][4], this.trajectories[this.currentFrameIndex][5], this.trajectories[this.currentFrameIndex][6]))
-
+            
             camera.rotateY(Math.PI)
             camera.rotateX(Math.PI)
         }
