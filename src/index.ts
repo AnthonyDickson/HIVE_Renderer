@@ -22,6 +22,7 @@ let selectState = false;
 let touchState = false;
 const raycaster = new THREE.Raycaster();
 const objsToTest = [];
+var intercept = [0, 0, 0];
 
 // set up the mouse
 const mouse = new THREE.Vector2();
@@ -505,7 +506,14 @@ function updateButtons() {
 		intersect = raycast();
 
 		// Position the little white dot at the end of the controller pointing ray
-		if ( intersect ) vrControl.setPointerAt( 0, intersect.point );
+		if(intersect){
+            vrControl.setPointerAt( 0, intersect.point );
+        }
+
+        // Update the global variable with the new intersect
+        if(intersect){
+            intercept = [intersect.point.x, intersect.point.y, intersect.point.z]
+        }
 
 	} else if ( mouse.x !== null && mouse.y !== null ) {
 
@@ -555,13 +563,13 @@ function raycast() {
 
 		const intersection = raycaster.intersectObject( obj, true );
 
-		if ( !intersection[ 0 ] ) return closestIntersection;
+		if ( !intersection[0] ) return closestIntersection;
 
-		if ( !closestIntersection || intersection[ 0 ].distance < closestIntersection.distance ) {
+		if ( !closestIntersection || intersection[0].distance < closestIntersection.distance ) {
 
-			intersection[ 0 ].object = obj;
+			intersection[0].object = obj;
 
-			return intersection[ 0 ];
+			return intersection[0];
 
 		}
 
@@ -662,27 +670,27 @@ function init() {
 
     const userGroup = new THREE.Group();
 
-    userGroup.add( vrControl.controllerGrips[ 0 ], vrControl.controllers[ 0 ] );
+    userGroup.add( vrControl.controllerGrips[0], vrControl.controllers[0] );
 
-    vrControl.controllers[ 0 ].addEventListener( 'selectstart', () => {
+    vrControl.controllers[0].addEventListener( 'selectstart', () => {
 
         selectState = true;
 
     } );
-    vrControl.controllers[ 0 ].addEventListener( 'selectend', () => {
+    vrControl.controllers[0].addEventListener( 'selectend', () => {
 
         selectState = false;
 
     } );
 
-    userGroup.add( vrControl.controllerGrips[ 1 ], vrControl.controllers[ 1 ] );
+    userGroup.add( vrControl.controllerGrips[1], vrControl.controllers[1] );
 
-    vrControl.controllers[ 1 ].addEventListener( 'selectstart', () => {
+    vrControl.controllers[1].addEventListener( 'selectstart', () => {
 
         selectState = true;
 
     } );
-    vrControl.controllers[ 1 ].addEventListener( 'selectend', () => {
+    vrControl.controllers[1].addEventListener( 'selectend', () => {
 
         selectState = false;
 
@@ -696,13 +704,6 @@ function init() {
 
     scene.add(userGroup);
     // end of initialising VR controllers
-
-    // setup the VR camera if in VR
-    //
-    // the VR camera by default starts in a strange (x, y, z) 
-    // and faces in the wrong direction (needs rotation towards the objects)
-    //renderer.xr.getCamera().cameras[0].position.x = 10;
-    //renderer.render( scene, renderer.xr.getCamera().cameras[0] );
 
     const onDocumentKeyDown = (event) => {
         const keyCode = event.which;
@@ -774,7 +775,7 @@ function init() {
         scene.background = loadSkybox()
 
         // setup the button panel
-		let buttonContainer = createContainer(new THREE.Vector3(0, 1, 0));
+		let buttonContainer = createContainer(new THREE.Vector3(0, 2, 0));
         
         let buttons = [
             createButton("pause", "assets/pause.png", () => {buttonPause()}),
@@ -852,6 +853,8 @@ function init() {
             if(renderer.xr.isPresenting){
 
                 // try to get the statistics from the VR camera object
+
+                // every attempt at this so far has resulted in a crashed VR headset
 
             } else {
 
@@ -971,6 +974,15 @@ function init() {
             } );
             */
 
+            /*
+            // debug - shows the current intercept location
+            dynamicLabel.set( {
+                content: '\nintercept.x:' + intercept[0] + '\nintercept.y:' + intercept[1] + '\nintercept.z:' + intercept[2] + '\n',
+            } );
+            // that worked very easily
+            // we can now use the global variable intercept to figure out where the raycast is intercepting
+            */
+
             const delta = clock.getDelta()
 
 			dynamicElements.update(delta, scene)
@@ -985,6 +997,32 @@ function init() {
                 testLabel.set({
                     content: 'renderer.xr.isPresenting is presenting\n',
                 })
+
+                renderer.xr.getSession().addEventListener("selectstart", (event) => {
+                    console.log(event)
+                    dynamicLabel.set( { content: '\n' + 'event: selectstart\n' })
+                });
+
+                renderer.xr.getSession().addEventListener("selectend", (event) => {
+                    console.log(event)
+                    dynamicLabel.set( { content: '\n' + 'event: selectend\n' + 'will now, in theory, teleport to\n' +
+                    'intercept.x:' + intercept[0] + '\nintercept.y:' + intercept[1] + '\nintercept.z:' + intercept[2] + '\n' + 
+                    'Math.round(intercept[0]):' + Math.round(intercept[0]) + '\n' })
+
+                    dynamicLabel.set({ content: '\nvrControl.controllers[0].point.position.x: ' + vrControl.controllers[0].point.position.x + '\n' + 
+                    'vrControl.controllers[0].point.position.y: ' + vrControl.controllers[0].point.position.y + '\n' + 
+                    'vrControl.controllers[0].point.position.z: ' + (1 + vrControl.controllers[0].point.position.z) + '\n'})
+
+                    /*
+                    let localVec = [vrControl.controllers[0].point.position.x, vrControl.controllers[0].point.position.y, vrControl.controllers[0].point.position.z]
+                    var worldVec = vrControl.controllers[0].localToWorld( localVec );
+
+                    dynamicLabel.set({ content: '\nworldVec: ' + worldVec + '\n' })
+                    */
+
+                    //userGroup.translateZ(intercept[2]);
+                    //userGroup.translateZ(0.1);
+                });
 
                 // rotates around the Y axis by 180 degrees
                 // to undo the strange initial behaviour of the WebXRManager

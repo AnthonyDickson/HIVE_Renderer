@@ -129,7 +129,7 @@ export default function VRControl( renderer, camera, scene ) {
 		dummyMatrix.identity().extractRotation( controller.matrixWorld );
 
 		ray.origin.setFromMatrixPosition( controller.matrixWorld );
-		ray.direction.set( 0, 0, - 1 ).applyMatrix4( dummyMatrix );
+		ray.direction.set( 0, 0, -1 ).applyMatrix4( dummyMatrix );
 
 	};
 
@@ -196,7 +196,7 @@ function generatePointerTexture() {
 	ctx.arc(32, 32, 29, 0, 2 * Math.PI);
 	ctx.lineWidth = 5;
 	ctx.stroke();
-	ctx.fillStyle = "white";
+	ctx.fillStyle = "black";
 	ctx.fill();
 
 	return canvas;
