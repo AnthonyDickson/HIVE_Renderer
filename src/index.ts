@@ -323,6 +323,18 @@ function init() {
 
         const clock = new THREE.Clock()
 
+        var isXRCameraFixed = false;
+
+        const userGroup = new THREE.Group();
+
+        // since we move the scene to be "centered" on the trackball controller,
+        // we need to move the controllers to match the new scene location
+        userGroup.translateY(1.5);
+        userGroup.add(camera);
+        userGroup.translateZ(-1);
+
+        scene.add(userGroup);
+
         renderer.setAnimationLoop(() => {
             stats.begin()
 
@@ -339,6 +351,12 @@ function init() {
                 loadingOverlay.hide()
 
                 clock.start()
+            }
+            
+            // fix the initial position of the VR camera
+            if(renderer.xr.isPresenting && isXRCameraFixed == false){
+                userGroup.rotateY(Math.PI);
+                isXRCameraFixed = true;
             }
 
             const delta = clock.getDelta()
