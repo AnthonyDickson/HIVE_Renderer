@@ -323,6 +323,8 @@ function init() {
 
         const clock = new THREE.Clock()
 
+        var isXRCameraFixed = false;
+
         renderer.setAnimationLoop(() => {
             stats.begin()
 
@@ -339,6 +341,12 @@ function init() {
                 loadingOverlay.hide()
 
                 clock.start()
+            }
+            
+            // fix the initial position of the VR camera
+            if(renderer.xr.isPresenting && isXRCameraFixed == false){
+                camera.rotateY(Math.PI);
+                isXRCameraFixed = true;
             }
 
             const delta = clock.getDelta()
