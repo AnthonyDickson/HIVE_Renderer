@@ -325,6 +325,10 @@ function init() {
 
         var isXRCameraFixed = false;
 
+        // we add an ambient light source to the scene
+        var light = new THREE.AmbientLight(0xffffff);
+        scene.add(light);
+
         const userGroup = new THREE.Group();
 
         // since we move the scene to be "centered" on the trackball controller,
