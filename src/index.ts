@@ -326,10 +326,14 @@ function init() {
         // we load the nice clouds
         scene.background = loadSkybox()
 
+        // we add an ambient light source to the scene
+        var light = new THREE.AmbientLight(0xffffff);
+        scene.add(light);
+
         const userGroup = new THREE.Group();
-        const controllerModelFactory = new XRControllerModelFactory();
         
         // we add the controllers
+        const controllerModelFactory = new XRControllerModelFactory();
         const controller1 = renderer.xr.getController(0);
         userGroup.add(controller1);
 
