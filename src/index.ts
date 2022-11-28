@@ -889,6 +889,10 @@ function init() {
         scene.add(informationContainer);
         // end of information panel setup
 
+        // we add an ambient light source to the scene
+        var light = new THREE.AmbientLight(0xffffff);
+        scene.add(light);
+
         // start of catalogue panel setup
 		let catalogueContainer = createContainer(new THREE.Vector3(2, 1, 0));
 
