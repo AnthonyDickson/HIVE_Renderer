@@ -8,6 +8,8 @@ import Stats from "three/examples/jsm/libs/stats.module.js"
 import {VRButton} from 'three/examples/jsm/webxr/VRButton.js'
 // @ts-ignore
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
+// @ts-ignore
+import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 
 window.onload = () => {
     init()
@@ -318,14 +320,38 @@ function init() {
             persistFrame: true
         }).load()
 
+        // we create the ground plane
         scene.add(getGroundPlane(100, 100))
+        
+        // we load the nice clouds
         scene.background = loadSkybox()
 
+        const userGroup = new THREE.Group();
+        const controllerModelFactory = new XRControllerModelFactory();
+        
+        // we add the controllers
+        const controller1 = renderer.xr.getController(0);
+        userGroup.add(controller1);
+
+        const controller2 = renderer.xr.getController(1);
+        userGroup.add(controller2);
+
+        const controllerGrip1 = renderer.xr.getControllerGrip(0);
+        controllerGrip1.add(
+            controllerModelFactory.createControllerModel(controllerGrip1)
+        );
+        userGroup.add(controllerGrip1);
+
+        const controllerGrip2 = renderer.xr.getControllerGrip(1);
+        controllerGrip2.add(
+            controllerModelFactory.createControllerModel(controllerGrip2)
+        );
+        userGroup.add(controllerGrip2);
+
+        // we start the clock
         const clock = new THREE.Clock()
 
         var isXRCameraFixed = false;
-
-        const userGroup = new THREE.Group();
 
         // since we move the scene to be "centered" on the trackball controller,
         // we need to move the controllers to match the new scene location
