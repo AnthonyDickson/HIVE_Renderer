@@ -352,6 +352,9 @@ function init() {
         );
         userGroup.add(controllerGrip2);
 
+        // raycaster
+        const raycaster = new THREE.Raycaster();
+
         // we start the clock
         const clock = new THREE.Clock()
 
