@@ -403,7 +403,6 @@ const createRenderer = (width: number, height: number): THREE.WebGLRenderer => {
     renderer.xr.enabled = true
     renderer.xr.setReferenceSpaceType('local')
 
-    document.body.appendChild(VRButton.createButton(renderer))
 	document.body.appendChild( renderer.domElement )
 
     return renderer
