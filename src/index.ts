@@ -1,7 +1,7 @@
 // @ts-ignore
 import * as THREE from 'three'
 // @ts-ignore
-import {TrackballControls} from 'three/examples/jsm/controls/TrackballControls.js'
+import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls'
 // @ts-ignore
 import Stats from "three/examples/jsm/libs/stats.module.js"
 // @ts-ignore
@@ -10,6 +10,10 @@ import {VRButton} from 'three/examples/jsm/webxr/VRButton.js'
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
 // @ts-ignore
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
+// @ts-ignore
+//import TeleportVR from "teleportvr";
+// @ts-ignore
+import StatsVR from 'statsvr';
 
 window.onload = () => {
     init()
@@ -185,7 +189,7 @@ class LoadingOverlay {
 }
 
 const createRenderer = (width: number, height: number): THREE.WebGLRenderer => {
-    const renderer = new THREE.WebGLRenderer()
+    const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setSize(width, height)
     document.body.appendChild(renderer.domElement)
 
@@ -197,8 +201,8 @@ const createRenderer = (width: number, height: number): THREE.WebGLRenderer => {
     return renderer
 }
 
-const createControls = (camera: THREE.Camera, renderer: THREE.WebGLRenderer): TrackballControls => {
-    const controls = new TrackballControls(camera, renderer.domElement)
+const createControls = (camera: THREE.Camera, renderer: THREE.WebGLRenderer): OrbitControls => {
+    const controls = new OrbitControls(camera, renderer.domElement)
 
     controls.rotateSpeed = 1.0
     controls.zoomSpeed = 1.0
@@ -265,10 +269,10 @@ function init() {
 
     const resetCamera = () => {
         controls.reset()
-        camera.position.z = -1.5
+
+        // initial position of the camera
+        camera.position.set(0, 1.6, -3)
         camera.lookAt(0, 0, 0)
-        // Have to move the world instead of the camera to get the controls to behave correctly...
-        scene.position.y = -1.5
     }
 
     const onDocumentKeyDown = (event) => {
@@ -320,8 +324,16 @@ function init() {
             persistFrame: true
         }).load()
 
-        // we create the ground plane
-        scene.add(getGroundPlane(100, 100))
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(20, 20, 10, 10),
+            new THREE.MeshBasicMaterial({
+                color: 0x008800,
+                wireframe: true,
+            })
+        )
+        floor.rotation.x = Math.PI / -2
+        floor.position.y = -0.001
+        scene.add(floor)
         
         // we load the nice clouds
         scene.background = loadSkybox()
@@ -330,49 +342,47 @@ function init() {
         var light = new THREE.AmbientLight(0xffffff);
         scene.add(light);
 
-        const userGroup = new THREE.Group();
-        
-        // we add the controllers
+        // some fantastic combination of the two strategies
+        const teleportVR = new TeleportVR(scene, camera);
+
         const controllerModelFactory = new XRControllerModelFactory();
-        const controller1 = renderer.xr.getController(0);
-        userGroup.add(controller1);
 
-        const controller2 = renderer.xr.getController(1);
-        userGroup.add(controller2);
+        const controllerGrip0 = renderer.xr.getControllerGrip(0);
+        controllerGrip0.add(
+            controllerModelFactory.createControllerModel(controllerGrip0)
+        );
+        controllerGrip0.addEventListener('connected', (e: any) => {
+            teleportVR.add(0, controllerGrip0, e.data.gamepad)
+        })
 
-        const controllerGrip1 = renderer.xr.getControllerGrip(0);
+        const controllerGrip1 = renderer.xr.getControllerGrip(1);
         controllerGrip1.add(
             controllerModelFactory.createControllerModel(controllerGrip1)
         );
-        userGroup.add(controllerGrip1);
-
-        const controllerGrip2 = renderer.xr.getControllerGrip(1);
-        controllerGrip2.add(
-            controllerModelFactory.createControllerModel(controllerGrip2)
-        );
-        userGroup.add(controllerGrip2);
-
-        // raycaster
-        const raycaster = new THREE.Raycaster();
+        controllerGrip1.addEventListener('connected', (e: any) => {
+            teleportVR.add(1, controllerGrip1, e.data.gamepad)
+        })
 
         // we start the clock
         const clock = new THREE.Clock()
-
-        var isXRCameraFixed = false;
-
-        // since we move the scene to be "centered" on the trackball controller,
-        // we need to move the controllers to match the new scene location
-        userGroup.translateY(1.5);
-        userGroup.add(camera);
-        userGroup.translateZ(-1);
-
-        scene.add(userGroup);
+        
+        //set up stats in VR
+        const statsVR = new StatsVR(scene, camera)
+        statsVR.setX(0)
+        statsVR.setY(0)
+        statsVR.setZ(-2)
 
         renderer.setAnimationLoop(() => {
-            stats.begin()
 
+            // browser only
+            if(!renderer.xr.isPresenting){
+                stats.begin()
+            }
+
+            // when running for the first time
             if (loadingOverlay.isVisible && dynamicElements.hasLoaded && staticElements.hasLoaded) {
-                // Ensure that the two clips will be synced
+
+                // synchronise the foreground and background
                 const numFrames = Math.max(staticElements.numFrames, dynamicElements.numFrames)
                 dynamicElements.numFrames = numFrames
                 staticElements.numFrames = numFrames
@@ -380,28 +390,238 @@ function init() {
                 dynamicElements.reset()
                 staticElements.reset()
 
-                resetCamera()
-                loadingOverlay.hide()
-
+                // browser only
+                if(!renderer.xr.isPresenting){
+                    resetCamera()
+                    loadingOverlay.hide()
+                }
+                
                 clock.start()
+
+                /*
+                // fix the initial position of the VR camera
+                if(renderer.xr.isPresenting && isXRCameraFixed == false){
+                    //userGroup.rotateY(Math.PI);
+                    isXRCameraFixed = true;
+                }
+                */
             }
-            
-            // fix the initial position of the VR camera
-            if(renderer.xr.isPresenting && isXRCameraFixed == false){
-                userGroup.rotateY(Math.PI);
-                isXRCameraFixed = true;
+
+            // webxr only
+            if(renderer.xr.isPresenting){
+                teleportVR.update()
+
+                statsVR.update()
+            } else {
+                controls.update()
             }
 
             const delta = clock.getDelta()
 
             dynamicElements.update(delta, scene)
             staticElements.update(delta, scene)
-            controls.update()
 
             renderer.render(scene, camera)
 
-            stats.end()
+            // browser only
+            if(!renderer.xr.isPresenting){
+                stats.end()
+            }
         })
     })
         .catch(() => alert("An error occurred when trying to load the video."))
 }
+
+class TeleportVR {
+     private _group = new THREE.Group()
+     private _target = new THREE.Group()
+     private _curve = new THREE.Mesh()
+     private _maxDistance = 10
+     private _visible = false
+     private _activeController = new THREE.Object3D()
+     private _activeControllerKey = ''
+     private _controllers: { [id: number]: THREE.Object3D } = {}
+     private _enabled: { [id: number]: boolean } = {}
+     private _gamePads: { [id: number]: Gamepad } = {}
+     private _raycaster = new THREE.Raycaster()
+     private _vectorArray: THREE.QuadraticBezierCurve3
+ 
+     constructor(scene: THREE.Scene, camera: THREE.Camera) {
+         this._group.add(camera)
+         scene.add(this._group)
+ 
+         this._group.add(this._target)
+ 
+         this._vectorArray = new THREE.QuadraticBezierCurve3(
+             new THREE.Vector3(0, 0, 0),
+             new THREE.Vector3(1, 3, -1),
+             new THREE.Vector3(2, 0, -2)
+         )
+ 
+         const _mesh = new THREE.Mesh(
+             new THREE.CylinderGeometry(1, 1, 0.01, 8),
+             new THREE.MeshBasicMaterial({
+                 color: 0x0044ff,
+                 wireframe: true,
+             })
+         )
+         _mesh.name = 'helperTarget'
+         this._target.add(_mesh)
+ 
+         const _mesh2 = new THREE.Mesh(
+             new THREE.BoxGeometry(0.1, 0.1, 2),
+             new THREE.MeshBasicMaterial({
+                 color: 0x0044ff,
+                 wireframe: true,
+             })
+         )
+         _mesh2.translateZ(-1)
+         _mesh2.name = 'helperDirection'
+         this._target.add(_mesh2)
+         this._target.visible = false
+ 
+         const _geometry = new THREE.TubeGeometry(this._vectorArray, 9, 0.1, 5, false)
+         this._curve = new THREE.Mesh(
+             _geometry,
+             new THREE.MeshBasicMaterial({
+                 color: 0xff0000,
+                 wireframe: true,
+             })
+         )
+         this._curve.visible = false
+         this._group.add(this._curve)
+ 
+         const direction = new THREE.Vector3(0, -1, 0)
+         this._raycaster.ray.direction.copy(direction)
+     }
+ 
+     public add(id: number, model: THREE.Object3D, gamePad: Gamepad) {
+         model.name = 'teleportVRController_' + id.toString()
+         this._group.add(model)
+         this._controllers[id] = model
+         this._gamePads[id] = gamePad
+         this._enabled[id] = true
+         //console.log("gamepads length = " + Object.keys(this._gamePads).length)
+     }
+ 
+     public get enabled(): { [id: number]: boolean } {
+         return this._enabled
+     }
+     public set enabled(value: { [id: number]: boolean }) {
+         this._enabled = value
+     }
+ 
+     public get gamePads(): { [id: number]: Gamepad } {
+         return this._gamePads
+     }
+     public set gamePads(value: { [id: number]: Gamepad }) {
+         this._gamePads = value
+     }
+ 
+     public get target() {
+         return this._target
+     }
+     public set target(value) {
+         this._target = value
+     }
+ 
+     public get curve() {
+         return this._curve
+     }
+     public set curve(value) {
+         this._curve = value
+     }
+ 
+     public useDefaultTargetHelper(use: boolean) {
+         ;(this._target.getObjectByName('helperTarget') as THREE.Mesh).visible = use
+     }
+     public useDefaultDirectionHelper(use: boolean) {
+         ;(this._target.getObjectByName('helperDirection') as THREE.Mesh).visible = use
+     }
+ 
+     public setMaxDistance(val: number) {
+         this._maxDistance = val
+     }
+ 
+     public teleport() {
+         this._visible = false
+         this._target.visible = false
+         this._curve.visible = false
+         this._target.getWorldPosition(this._group.position)
+         this._target.getWorldQuaternion(this._group.quaternion)
+     }
+ 
+     public update(elevationsMeshList?: THREE.Mesh[]) {
+         if (Object.keys(this._gamePads).length > 0) {
+             for (let key in Object.keys(this._gamePads)) {
+                 if (this._enabled[key]) {
+                     const gp = this._gamePads[key]
+                     if (gp.buttons[3].touched) {
+                         //console.log("hapticActuators = " + gp.hapticActuators)
+                         //console.log(gp.axes[0] + " " + gp.axes[1] + " " + gp.axes[2] + " " + gp.axes[3])
+                         this._activeController = this._controllers[key]
+                         this._activeControllerKey = key
+                         this._visible = true
+                         if (Math.abs(gp.axes[2]) + Math.abs(gp.axes[3]) > 0.25) {
+                             this._target.rotation.y = Math.atan2(-gp.axes[2], -gp.axes[3]) //angle degrees
+                         }
+                         this._target.visible = true
+                         this._curve.visible = true
+                         break
+                     } else {
+                         if (this._activeControllerKey === key) {
+                             this._activeControllerKey = ''
+                             this.teleport()
+                             this._target.rotation.y = 0
+
+                             // put fix here
+                             this._group.position.y = 1
+
+                             // how can I adjust the position of the camera without interfering with
+                             // the position of 
+
+                             // maybe i need to change logic below to fix it 
+
+                             // find the intercept of the thing
+
+                             // or turn the curve into a straight line? hmm
+                         }
+                     }
+                 }
+             }
+         }
+ 
+         if (this._visible) {
+             const v = new THREE.Vector3(0, -1, 0)
+             v.applyQuaternion(this._activeController.quaternion)
+             this._target.position.set(v.x * this._maxDistance, 0, v.z * this._maxDistance)
+ 
+             if (elevationsMeshList) {
+                 this._target.getWorldPosition(this._raycaster.ray.origin)
+                 this._raycaster.ray.origin.y += 10
+                 var intersects = this._raycaster.intersectObjects(elevationsMeshList)
+                 if (intersects.length > 0) {
+                     this._target.position.y = intersects[0].point.y - this._group.position.y
+                 }
+             }
+ 
+             this._vectorArray.v0.copy(this._target.position)
+             this._vectorArray.v2.copy(this._activeController.position)
+             var midPoint = new THREE.Object3D()
+             midPoint.position.copy(this._vectorArray.v2)
+             midPoint.quaternion.copy(this._activeController.quaternion)
+             midPoint.translateY(-3)
+             this._vectorArray.v1.copy(midPoint.position)
+ 
+             const t = new THREE.TubeGeometry(
+                 this._vectorArray,
+                 9,
+                 0.1,
+                 5,
+                 false
+             ) as THREE.BufferGeometry
+             ;(this._curve.geometry as THREE.BufferGeometry).copy(t)
+         }
+     }
+ }
+ 
