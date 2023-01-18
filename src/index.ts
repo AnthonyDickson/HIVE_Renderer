@@ -344,7 +344,7 @@ function init() {
 
             if (loadingOverlay.isVisible && dynamicElements.hasLoaded && staticElements.hasLoaded) {
                 // Ensure that the two clips will be synced
-                const numFrames = Math.max(staticElements.numFrames, dynamicElements.numFrames)
+                const numFrames = metadata["num_frames"] ?? Math.max(staticElements.numFrames, dynamicElements.numFrames)
                 dynamicElements.numFrames = numFrames
                 staticElements.numFrames = numFrames
 

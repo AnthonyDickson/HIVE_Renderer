@@ -55933,11 +55933,23 @@ function init() {
         scene.add(getGroundPlane(100, 100));
         scene.background = loadSkybox();
         const clock = new three__WEBPACK_IMPORTED_MODULE_0__["Clock"]();
+        var isXRCameraFixed = false;
+        // we add an ambient light source to the scene
+        var light = new three__WEBPACK_IMPORTED_MODULE_0__["AmbientLight"](0xffffff);
+        scene.add(light);
+        const userGroup = new three__WEBPACK_IMPORTED_MODULE_0__["Group"]();
+        // since we move the scene to be "centered" on the trackball controller,
+        // we need to move the controllers to match the new scene location
+        userGroup.translateY(1.5);
+        userGroup.add(camera);
+        userGroup.translateZ(-1);
+        scene.add(userGroup);
         renderer.setAnimationLoop(() => {
+            var _a;
             stats.begin();
             if (loadingOverlay.isVisible && dynamicElements.hasLoaded && staticElements.hasLoaded) {
                 // Ensure that the two clips will be synced
-                const numFrames = Math.max(staticElements.numFrames, dynamicElements.numFrames);
+                const numFrames = (_a = metadata["num_frames"]) !== null && _a !== void 0 ? _a : Math.max(staticElements.numFrames, dynamicElements.numFrames);
                 dynamicElements.numFrames = numFrames;
                 staticElements.numFrames = numFrames;
                 dynamicElements.reset();
@@ -55945,6 +55957,11 @@ function init() {
                 resetCamera();
                 loadingOverlay.hide();
                 clock.start();
+            }
+            // fix the initial position of the VR camera
+            if (renderer.xr.isPresenting && isXRCameraFixed == false) {
+                userGroup.rotateY(Math.PI);
+                isXRCameraFixed = true;
             }
             const delta = clock.getDelta();
             dynamicElements.update(delta, scene);
