@@ -260,6 +260,10 @@ function init() {
     const renderer = createRenderer(canvasWidth, canvasHeight)
     const controls = createControls(camera, renderer)
     const stats = createStatsPanel()
+    const keys = {
+        'r': 82,
+        'p': 80
+    }
 
     const resetCamera = () => {
         controls.reset()
@@ -270,13 +274,14 @@ function init() {
     }
 
     const onDocumentKeyDown = (event) => {
-        const keyCode = event.which;
+        const keyCode = event.which
+
         switch (keyCode) {
-            case 82: { // the key 'r'
+            case keys.r: {
                 resetCamera()
                 break
             }
-            case 80: {
+            case keys.p: {
                 console.info(`Camera position: (${camera.position.x}, ${camera.position.y}, ${camera.position.z})`)
                 console.info(`Camera rotation: (${camera.rotation.x}, ${camera.rotation.y}, ${camera.rotation.z})`)
                 let cameraDirection = new THREE.Vector3()
@@ -318,8 +323,13 @@ function init() {
             persistFrame: true
         }).load()
 
-        scene.add(getGroundPlane(100, 100))
-        scene.background = loadSkybox()
+        if (metadata.hasOwnProperty("add_ground_plane") && metadata["add_ground_plane"] === true) {
+            scene.add(getGroundPlane(100, 100))
+        }
+
+        if (metadata.hasOwnProperty("add_sky_box") && metadata["add_sky_box"] === true) {
+            scene.background = loadSkybox()
+        }
 
         const clock = new THREE.Clock()
 
