@@ -55946,12 +55946,15 @@ function init() {
         var light = new three__WEBPACK_IMPORTED_MODULE_0__["AmbientLight"](0xffffff);
         scene.add(light);
         const userGroup = new three__WEBPACK_IMPORTED_MODULE_0__["Group"]();
-        // since we move the scene to be "centered" on the trackball controller,
-        // we need to move the controllers to match the new scene location
-        userGroup.translateY(1.5);
-        userGroup.add(camera);
-        userGroup.translateZ(-1);
-        scene.add(userGroup);
+        // This user group stuff causes weird issues with zooming on desktop.
+        if (renderer.xr.isPresenting) {
+            // since we move the scene to be "centered" on the trackball controller,
+            // we need to move the controllers to match the new scene location
+            userGroup.translateY(1.5);
+            userGroup.add(camera);
+            userGroup.translateZ(-1);
+            scene.add(userGroup);
+        }
         renderer.setAnimationLoop(() => {
             var _a;
             stats.begin();
