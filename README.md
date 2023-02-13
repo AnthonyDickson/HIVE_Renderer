@@ -21,7 +21,15 @@ docker pull dican732/webxr3dvideo:node-16
 docker run --rm -p 8080:8080 -v $(pwd)/src:/app/src:ro -v $(pwd)/docs:/app/docs dican732/webxr3dvideo:node-16
 ```
 The dev server will be accessible via http://localhost:8080.
-The web page works best with the Mozilla Firefox web browser.
+
+### Usage
+- Left clicking and dragging the mouse will rotate the camera.
+- Right clicking and dragging the mouse will pan the camera.
+- Scroll wheel will zoom in and out.
+- Press `r` to reset the camera.
+- Press `p` to save the video metadata with the pose data included.
+- Click the button bottom center to enter VR mode. You must be using a VR headset for this to work.
+
 ## Updating the GitHub Page
 1. Run the following commands after updating the page on the main branch.
     ```shell

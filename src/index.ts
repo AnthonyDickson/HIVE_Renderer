@@ -252,6 +252,14 @@ const loadSkybox = (): THREE.CubeTexture => {
         ])
 }
 
+const saveJSON = (content, fileName, contentType = 'text/plain') => {
+    var a = document.createElement("a");
+    var file = new Blob([JSON.stringify(content)], {type: contentType});
+    a.href = URL.createObjectURL(file);
+    a.download = fileName;
+    a.click();
+}
+
 function init() {
     const canvasWidth = window.innerWidth
     const canvasHeight = window.innerHeight
@@ -265,36 +273,6 @@ function init() {
         'p': 80
     }
 
-    const resetCamera = () => {
-        controls.reset()
-        camera.position.z = -1.5
-        camera.lookAt(0, 0, 0)
-        // Have to move the world instead of the camera to get the controls to behave correctly...
-        scene.position.y = -1.5
-    }
-
-    const onDocumentKeyDown = (event) => {
-        const keyCode = event.which
-
-        switch (keyCode) {
-            case keys.r: {
-                resetCamera()
-                break
-            }
-            case keys.p: {
-                console.info(`Camera position: (${camera.position.x}, ${camera.position.y}, ${camera.position.z})`)
-                console.info(`Camera rotation: (${camera.rotation.x}, ${camera.rotation.y}, ${camera.rotation.z})`)
-                let cameraDirection = new THREE.Vector3()
-                camera.getWorldDirection(cameraDirection)
-                console.info(`Camera direction: (${cameraDirection.x}, ${cameraDirection.y}, ${cameraDirection.z})`)
-                break
-            }
-            default:
-                console.debug(`Key ${keyCode} pressed.`)
-        }
-    }
-    document.addEventListener("keydown", onDocumentKeyDown, false);
-
     const videoFolder = getVideoFolder()
     document.title = `3D Video | ${videoFolder}`
 
@@ -302,6 +280,68 @@ function init() {
     loadingOverlay.show()
 
     loadMetadata(videoFolder).then(metadata => {
+        const resetCamera = () => {
+            controls.reset()
+
+            if (metadata.hasOwnProperty('position') && metadata.hasOwnProperty('rotation')) {
+                const position = metadata.position
+                const rotation = metadata.rotation
+                console.debug(`Using initial pose from metadata: ${JSON.stringify({'position': position, 'rotation': rotation})}`)
+
+                camera.position.x = position.x
+                camera.position.y = position.y
+                camera.position.z = position.z
+
+                camera.rotation.x = rotation.x
+                camera.rotation.y = rotation.y
+                camera.rotation.z = rotation.z
+            } else {
+                camera.position.z = -1.5
+                camera.lookAt(0, 0, 0)
+            }
+
+            // Have to move the world instead of the camera to get the controls to behave correctly...
+            scene.position.y = -1.5
+        }
+
+        const updateMetadata = () => {
+            const pose = {
+                'position': camera.position,
+                'rotation': {
+                    'x': camera.rotation.x,
+                    'y': camera.rotation.y,
+                    'z': camera.rotation.z
+                }
+            }
+
+            let newMetadata = {...metadata, ...pose}
+
+            saveJSON(newMetadata, 'metadata.json' )
+        }
+        const onDocumentKeyDown = (event) => {
+            const keyCode = event.which
+
+            switch (keyCode) {
+                case keys.r: {
+                    resetCamera()
+                    break
+                }
+                case keys.p: {
+                    console.info(`Camera position: (${camera.position.x}, ${camera.position.y}, ${camera.position.z})`)
+                    console.info(`Camera rotation: (${camera.rotation.x}, ${camera.rotation.y}, ${camera.rotation.z})`)
+                    let cameraDirection = new THREE.Vector3()
+                    camera.getWorldDirection(cameraDirection)
+                    console.info(`Camera direction: (${cameraDirection.x}, ${cameraDirection.y}, ${cameraDirection.z})`)
+
+                    updateMetadata()
+                    break
+                }
+                default:
+                    console.debug(`Key ${keyCode} pressed.`)
+            }
+        }
+        document.addEventListener("keydown", onDocumentKeyDown, false);
+
         const loader = new GLTFLoader()
         const swapMeshInterval = 1.0 / metadata["fps"] // seconds
 
