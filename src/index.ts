@@ -28,6 +28,9 @@ class MeshVideo {
     // The index of the currently displayed frame (null if no frame is currently displayed).
     private displayedFrameIndex: number
 
+    // Whether the mesh has a single frame and has `persistFrame` set to `true`.
+    private isStaticMesh: boolean
+
     public numFrames: number
     public hasLoaded: boolean
 
@@ -48,6 +51,7 @@ class MeshVideo {
         this.useVertexColour = useVertexColour
         this.persistFrame = persistFrame
         this.swapMeshInterval = swapMeshInterval
+        this.isStaticMesh = false
         this.reset()
 
         this.numFrames = 0
@@ -98,6 +102,11 @@ class MeshVideo {
                 this.hasLoaded = true
 
                 const numFramesLoaded = Object.keys(this.frames).length
+
+                if (numFramesLoaded === 1 && this.persistFrame) {
+                    this.isStaticMesh = true
+                }
+
                 console.info(`Loaded ${numFramesLoaded} frames for video "${this.sceneName}" in ${this.videoBaseFolder}.`)
             },
             undefined,
@@ -121,39 +130,53 @@ class MeshVideo {
 
         this.timeSinceLastMeshSwap += delta
 
-        if (this.timeSinceLastMeshSwap > this.swapMeshInterval && this.numFrames > 0) {
-            this.timeSinceLastMeshSwap = 0.0
+        if (this.timeSinceLastMeshSwap >= this.swapMeshInterval && this.numFrames > 0) {
+            // The time since last mesh swap can be many multiples of the swap mesh interval if the renderer loses
+            // focus and comes back into focus later.
+            const framesSinceLastUpdate = Math.floor(this.timeSinceLastMeshSwap / this.swapMeshInterval)
+            this.timeSinceLastMeshSwap = Math.max(0.0, this.timeSinceLastMeshSwap - framesSinceLastUpdate * this.swapMeshInterval)
 
-            this.step(scene)
+            if (framesSinceLastUpdate > 1) {
+                console.debug(`Catching up by skipping ${framesSinceLastUpdate - 1} frames...`)
+            }
+
+            this.step(scene, framesSinceLastUpdate)
         }
     }
 
     /**
-     * Advance one frame.
+     * Advance some number of frames.
      * @param scene The scene object to update.
+     * @param times How many frames to step through (default=1).
      * @private
      */
-    private step(scene: THREE.Scene) {
+    private step(scene: THREE.Scene, times=1) {
         const previousFrameIndex = this.displayedFrameIndex
-        const nextFrameIndex = this.currentFrameIndex
+        const nextFrameIndex = (this.currentFrameIndex + times) % this.numFrames
 
-        const hasPreviousFrame = this.frames.hasOwnProperty(previousFrameIndex)
-        const hasNextFrame = this.frames.hasOwnProperty(nextFrameIndex)
+        if (this.isStaticMesh && this.displayedFrameIndex === null) {
+            const index = parseInt(Object.keys(this.frames)[0])
+            scene.add(this.frames[index])
+            this.displayedFrameIndex = index
+        } else {
+            const hasPreviousFrame = this.frames.hasOwnProperty(previousFrameIndex)
+            const hasNextFrame = this.frames.hasOwnProperty(nextFrameIndex)
 
-        const shouldUpdateFrame = (this.persistFrame && hasNextFrame) || !this.persistFrame
+            const shouldUpdateFrame = (this.persistFrame && hasNextFrame) || !this.persistFrame
 
-        if (shouldUpdateFrame) {
-            if (hasPreviousFrame) {
-                scene.remove(this.frames[previousFrameIndex])
-            }
+            if (shouldUpdateFrame) {
+                if (hasPreviousFrame) {
+                    scene.remove(this.frames[previousFrameIndex])
+                }
 
-            if (hasNextFrame) {
-                scene.add(this.frames[nextFrameIndex])
-                this.displayedFrameIndex = nextFrameIndex
+                if (hasNextFrame) {
+                    scene.add(this.frames[nextFrameIndex])
+                    this.displayedFrameIndex = nextFrameIndex
+                }
             }
         }
 
-        this.currentFrameIndex = (this.currentFrameIndex + 1) % this.numFrames
+        this.currentFrameIndex = nextFrameIndex
     }
 }
 
@@ -379,19 +402,6 @@ function init() {
         var light = new THREE.AmbientLight(0xffffff);
         scene.add(light);
 
-        const userGroup = new THREE.Group();
-
-        // This user group stuff causes weird issues with zooming on desktop.
-        if (renderer.xr.isPresenting) {
-            // since we move the scene to be "centered" on the trackball controller,
-            // we need to move the controllers to match the new scene location
-            userGroup.translateY(1.5);
-            userGroup.add(camera);
-            userGroup.translateZ(-1);
-
-            scene.add(userGroup);
-        }
-
         renderer.setAnimationLoop(() => {
             stats.begin()
 
@@ -412,6 +422,16 @@ function init() {
             
             // fix the initial position of the VR camera
             if(renderer.xr.isPresenting && isXRCameraFixed == false){
+                const userGroup = new THREE.Group();
+
+                // since we move the scene to be "centered" on the trackball controller,
+                // we need to move the controllers to match the new scene location
+                userGroup.translateY(1.5);
+                userGroup.add(camera);
+                userGroup.translateZ(-1);
+
+                scene.add(userGroup);
+
                 userGroup.rotateY(Math.PI);
                 isXRCameraFixed = true;
             }
