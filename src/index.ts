@@ -123,7 +123,7 @@ class MeshVideo {
      * @param delta The time since the last call to this method.
      * @param scene The scene object to display the mesh(es) in.
      */
-    update(delta: number, scene: THREE.Scene) {
+    update(delta: number, scene: THREE.Scene | THREE.Group) {
         if (!this.hasLoaded) {
             return
         }
@@ -150,7 +150,7 @@ class MeshVideo {
      * @param times How many frames to step through (default=1).
      * @private
      */
-    private step(scene: THREE.Scene, times=1) {
+    private step(scene: THREE.Scene | THREE.Group, times=1) {
         const previousFrameIndex = this.displayedFrameIndex
         const nextFrameIndex = (this.currentFrameIndex + times) % this.numFrames
 
@@ -211,9 +211,6 @@ const createRenderer = (width: number, height: number): THREE.WebGLRenderer => {
     document.body.appendChild(renderer.domElement)
 
     renderer.setClearColor(0x000000, 1)
-    renderer.xr.enabled = true
-    renderer.xr.setReferenceSpaceType('local')
-    document.body.appendChild(VRButton.createButton(renderer))
 
     return renderer
 }
@@ -283,6 +280,63 @@ const saveJSON = (content, fileName, contentType = 'text/plain') => {
     a.click();
 }
 
+interface Vector3 {x: number, y: number, z: number}
+interface Vector4 {x: number, y: number, z: number, w: number}
+interface Pose {position: Vector3, rotation: Vector4}
+
+const getPoseFromCamera = (camera): Pose => {
+    const position = new THREE.Vector3()
+    const rotation = new THREE.Quaternion()
+    const matrixWorld = camera.matrixWorld
+
+    position.setFromMatrixPosition(matrixWorld)
+    rotation.setFromRotationMatrix(matrixWorld)
+
+    return {
+        'position': {
+            'x': position.x,
+            'y': position.y,
+            'z': position.z
+        },
+        'rotation': {
+            'x': rotation.x,
+            'y': rotation.y,
+            'z': rotation.z,
+            'w': rotation.w
+        }
+    }
+}
+
+const updateMetadata = (camera, renderer, metadata) => {
+    let newMetadata = {...metadata}
+
+    newMetadata.pose = getPoseFromCamera(camera)
+
+    console.debug(`Camera Pose: ${JSON.stringify(newMetadata.pose)}`)
+
+    if (renderer.xr.isPresenting) {
+        const headsetCamera = renderer.xr.getCamera()
+        newMetadata.headsetPose = getPoseFromCamera(headsetCamera)
+
+        console.debug(`Headset Pose: ${JSON.stringify(newMetadata.headsetPose)}`)
+    }
+
+    saveJSON(newMetadata, 'metadata.json' )
+}
+
+const applyPose = (object, pose: Pose, inverse=false) => {
+    const position = new THREE.Vector3(pose.position.x, pose.position.y, pose.position.z)
+    const rotation = new THREE.Quaternion(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w)
+
+    if (inverse) {
+        object.quaternion.multiply(rotation.conjugate())
+        object.position.add(position.negate())
+    } else {
+        object.position.add(position)
+        object.quaternion.multiply(rotation)
+    }
+}
+
 function init() {
     const canvasWidth = window.innerWidth
     const canvasHeight = window.innerHeight
@@ -291,6 +345,7 @@ function init() {
     const renderer = createRenderer(canvasWidth, canvasHeight)
     const controls = createControls(camera, renderer)
     const stats = createStatsPanel()
+    const userGroup = new THREE.Group()
     const keys = {
         'r': 82,
         'p': 80
@@ -306,41 +361,26 @@ function init() {
         const resetCamera = () => {
             controls.reset()
 
-            if (metadata.hasOwnProperty('position') && metadata.hasOwnProperty('rotation')) {
-                const position = metadata.position
-                const rotation = metadata.rotation
-                console.debug(`Using initial pose from metadata: ${JSON.stringify({'position': position, 'rotation': rotation})}`)
+            camera.position.set(0.0, 0.0, 0.0)
+            camera.quaternion.set(0.0, 0.0, 0.0, 1.0)
 
-                camera.position.x = position.x
-                camera.position.y = position.y
-                camera.position.z = position.z
+            camera.position.setZ(-1.5)
+            camera.lookAt(0, 0, 0)
 
-                camera.rotation.x = rotation.x
-                camera.rotation.y = rotation.y
-                camera.rotation.z = rotation.z
-            } else {
-                camera.position.z = -1.5
-                camera.lookAt(0, 0, 0)
-            }
+            // if (metadata.hasOwnProperty('pose')) {
+            //     const pose = metadata.pose
+            //     console.debug(`Using initial pose from metadata: ${JSON.stringify(pose)}`)
+            //
+            //     applyPose(camera, pose)
+            // } else {
+            //     camera.position.setZ(-1.5)
+            //     camera.lookAt(0, 0, 0)
+            // }
 
             // Have to move the world instead of the camera to get the controls to behave correctly...
-            scene.position.y = -1.5
+            scene.position.setY(-1.5)
         }
 
-        const updateMetadata = () => {
-            const pose = {
-                'position': camera.position,
-                'rotation': {
-                    'x': camera.rotation.x,
-                    'y': camera.rotation.y,
-                    'z': camera.rotation.z
-                }
-            }
-
-            let newMetadata = {...metadata, ...pose}
-
-            saveJSON(newMetadata, 'metadata.json' )
-        }
         const onDocumentKeyDown = (event) => {
             const keyCode = event.which
 
@@ -350,13 +390,7 @@ function init() {
                     break
                 }
                 case keys.p: {
-                    console.info(`Camera position: (${camera.position.x}, ${camera.position.y}, ${camera.position.z})`)
-                    console.info(`Camera rotation: (${camera.rotation.x}, ${camera.rotation.y}, ${camera.rotation.z})`)
-                    let cameraDirection = new THREE.Vector3()
-                    camera.getWorldDirection(cameraDirection)
-                    console.info(`Camera direction: (${cameraDirection.x}, ${cameraDirection.y}, ${cameraDirection.z})`)
-
-                    updateMetadata()
+                    updateMetadata(camera, renderer, metadata)
                     break
                 }
                 default:
@@ -396,50 +430,88 @@ function init() {
 
         const clock = new THREE.Clock()
 
-        var isXRCameraFixed = false;
-
         // we add an ambient light source to the scene
-        var light = new THREE.AmbientLight(0xffffff);
-        scene.add(light);
+        scene.add(new THREE.AmbientLight(0xffffff));
+
+        const onSceneLoaded = () => {
+            // Ensure that the two clips will be synced
+            const numFrames = metadata["num_frames"] ?? Math.max(staticElements.numFrames, dynamicElements.numFrames)
+            dynamicElements.numFrames = numFrames
+            staticElements.numFrames = numFrames
+
+            dynamicElements.reset()
+            staticElements.reset()
+
+            resetCamera()
+
+            renderer.xr.enabled = true
+            renderer.xr.setReferenceSpaceType('local')
+            document.body.appendChild(VRButton.createButton(renderer))
+
+            loadingOverlay.hide()
+
+            clock.start()
+        }
+
+        scene.add(userGroup)
+
+        // Have to use `xr` as type any as a workaround for no property error for `addEventListener` on `renderer.xr`.
+        const xr: any = renderer.xr
+        let headsetCamera = null
+
+        xr.addEventListener('sessionstart', () => {
+            // since we move the scene to be "centered" on the trackball controller,
+            // we need to move the controllers to match the new scene location
+            userGroup.position.set(0.0, 0.0, 0.0)
+            userGroup.rotation.set(0.0, 0.0, 0.0)
+
+            userGroup.translateY(1.5)
+            userGroup.add(camera)
+            userGroup.translateZ(-1.5)
+            userGroup.rotateY(Math.PI)
+
+            if (metadata.hasOwnProperty('headsetPose')) {
+                console.debug(`Initialising headset with pose: ${JSON.stringify(metadata.headsetPose)}`)
+                headsetCamera = renderer.xr.getCamera()
+                // userGroup.add(headsetCamera)
+                applyPose(userGroup, metadata.headsetPose, true)
+            } else {
+            }
+
+            console.debug("Entered XR mode.")
+        })
+
+        xr.addEventListener('sessionend', () => {
+            if (metadata.hasOwnProperty('headsetPose')) {
+                applyPose(userGroup, metadata.headsetPose)
+                // userGroup.remove(headsetCamera)
+            } else {
+            }
+
+            userGroup.rotateY(Math.PI)
+            userGroup.translateZ(1.5)
+            userGroup.remove(camera)
+            userGroup.translateY(-1.5)
+
+            userGroup.rotation.set(0.0, 0.0, 0.0)
+            userGroup.position.set(0.0, 0.0, 0.0)
+
+            resetCamera()
+
+            console.debug("Exited XR mode.")
+        })
 
         renderer.setAnimationLoop(() => {
             stats.begin()
 
             if (loadingOverlay.isVisible && dynamicElements.hasLoaded && staticElements.hasLoaded) {
-                // Ensure that the two clips will be synced
-                const numFrames = metadata["num_frames"] ?? Math.max(staticElements.numFrames, dynamicElements.numFrames)
-                dynamicElements.numFrames = numFrames
-                staticElements.numFrames = numFrames
-
-                dynamicElements.reset()
-                staticElements.reset()
-
-                resetCamera()
-                loadingOverlay.hide()
-
-                clock.start()
-            }
-            
-            // fix the initial position of the VR camera
-            if(renderer.xr.isPresenting && isXRCameraFixed == false){
-                const userGroup = new THREE.Group();
-
-                // since we move the scene to be "centered" on the trackball controller,
-                // we need to move the controllers to match the new scene location
-                userGroup.translateY(1.5);
-                userGroup.add(camera);
-                userGroup.translateZ(-1);
-
-                scene.add(userGroup);
-
-                userGroup.rotateY(Math.PI);
-                isXRCameraFixed = true;
+                onSceneLoaded()
             }
 
             const delta = clock.getDelta()
 
-            dynamicElements.update(delta, scene)
-            staticElements.update(delta, scene)
+            dynamicElements.update(delta, userGroup)
+            staticElements.update(delta, userGroup)
             controls.update()
 
             renderer.render(scene, camera)
