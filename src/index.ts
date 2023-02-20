@@ -324,8 +324,8 @@ const decompose = (poseMatrix) => {
         rotation: rotation
     }
 }
-const getPoseJSON = (camera): Pose => {
-    const {position, rotation} = decompose(camera.matrixWorld)
+const getPoseJSON = (poseMatrix): Pose => {
+    const {position, rotation} = decompose(poseMatrix)
 
     return {
         'position': {
@@ -342,14 +342,14 @@ const getPoseJSON = (camera): Pose => {
     }
 }
 
-const updateMetadata = (camera, renderer, metadata) => {
+const updateMetadata = (camera, metadata) => {
     let newMetadata = {...metadata}
 
-    newMetadata.pose = getPoseJSON(camera)
+    newMetadata.pose = getPoseJSON(camera.matrixWorld)
 
     console.debug(`Camera Pose: ${JSON.stringify(newMetadata.pose)}`)
 
-    saveJSON(newMetadata, 'metadata.json' )
+    saveJSON(newMetadata, 'metadata.json')
 }
 
 /**
@@ -368,8 +368,9 @@ const resetGroupPose = (group) => {
  * @param camera The `PerspectiveCamera` object that is responsible for rendering the scene (on desktop, not XR).
  * @param group The group that holds all the scene geometry.
  * @param controls The orbit controls for `camera`.
+ * @param metadata The video metadata object.
  */
-const resetCamera = (camera, group, controls) => {
+const resetCamera = (camera, group, controls, metadata) => {
     controls.reset()
 
     camera.position.set(0.0, 0.0, 0.0)
@@ -392,7 +393,8 @@ function init() {
     const userGroup = new THREE.Group()
     const keys = {
         'r': 82,
-        'p': 80
+        'p': 80,
+        'l': 76
     }
 
     const videoFolder = getVideoFolder()
@@ -402,16 +404,23 @@ function init() {
     loadingOverlay.show()
 
     loadMetadata(videoFolder).then(metadata => {
+        let usedCachedPose = true
+
         const onDocumentKeyDown = (event) => {
             const keyCode = event.which
 
             switch (keyCode) {
                 case keys.r: {
-                    resetCamera(camera, userGroup, controls)
+                    resetCamera(camera, userGroup, controls, metadata)
                     break
                 }
                 case keys.p: {
-                    updateMetadata(camera, renderer, metadata)
+                    updateMetadata(camera, metadata)
+                    break
+                }
+                case keys.l: {
+                    usedCachedPose = !usedCachedPose
+                    console.debug(`Using cached pose form metadata is: ${usedCachedPose ? "enabled" : "disabled"}.`)
                     break
                 }
                 default:
@@ -453,6 +462,7 @@ function init() {
 
         // we add an ambient light source to the scene
         scene.add(new THREE.AmbientLight(0xffffff));
+        scene.add(userGroup)
 
         const onSceneLoaded = () => {
             // Ensure that the two clips will be synced
@@ -466,7 +476,7 @@ function init() {
             dynamicElements.reset()
             staticElements.reset()
 
-            resetCamera(camera, userGroup, controls)
+            resetCamera(camera, userGroup, controls, metadata)
 
             renderer.xr.enabled = true
             renderer.xr.setReferenceSpaceType('local')
@@ -477,21 +487,29 @@ function init() {
             clock.start()
         }
 
-        scene.add(userGroup)
-
         // This is used to keep track of the camera pose before entering XR.
-        let cameraPose = null
+        let cameraPosition = null
+        let cameraRotation = null
 
         // Have to use `xr` as type any as a workaround for no property error for `addEventListener` on `renderer.xr`.
         const xr: any = renderer.xr
 
         xr.addEventListener('sessionstart', () => {
-            cameraPose = camera.matrixWorld.clone()
+            if (usedCachedPose && metadata.hasOwnProperty('pose')) {
+                const {position, rotation} = metadata.pose
 
-            const {position, rotation} = decompose(cameraPose)
+                cameraPosition = new THREE.Vector3(position.x, position.y, position.z)
+                cameraRotation = new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w)
+            } else {
+                const cameraPose = camera.matrixWorld.clone()
 
-            const inverse_rotation = rotation.conjugate()
-            const translation = position.negate().applyQuaternion(inverse_rotation)
+                const pose = decompose(cameraPose)
+                cameraPosition = pose.position
+                cameraRotation = pose.rotation
+            }
+
+            const inverse_rotation = cameraRotation.conjugate()
+            const translation = cameraPosition.negate().applyQuaternion(inverse_rotation)
 
             userGroup.quaternion.multiplyQuaternions(inverse_rotation, userGroup.quaternion)
             userGroup.position.addVectors(userGroup.position, translation)
@@ -502,11 +520,9 @@ function init() {
         xr.addEventListener('sessionend', () => {
             resetGroupPose(userGroup)
 
-            if (cameraPose != null) {
-                const {position, rotation} = decompose(cameraPose)
-
-                camera.position.copy(position)
-                camera.quaternion.copy(rotation)
+            if (cameraPosition != null && cameraRotation != null) {
+                camera.position.copy(cameraPosition)
+                camera.quaternion.copy(cameraRotation)
             }
 
             console.debug("Exited XR mode.")

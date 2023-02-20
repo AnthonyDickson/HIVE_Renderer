@@ -55921,8 +55921,8 @@ const decompose = (poseMatrix) => {
         rotation: rotation
     };
 };
-const getPoseJSON = (camera) => {
-    const { position, rotation } = decompose(camera.matrixWorld);
+const getPoseJSON = (poseMatrix) => {
+    const { position, rotation } = decompose(poseMatrix);
     return {
         'position': {
             'x': position.x,
@@ -55937,9 +55937,9 @@ const getPoseJSON = (camera) => {
         }
     };
 };
-const updateMetadata = (camera, renderer, metadata) => {
+const updateMetadata = (camera, metadata) => {
     let newMetadata = Object.assign({}, metadata);
-    newMetadata.pose = getPoseJSON(camera);
+    newMetadata.pose = getPoseJSON(camera.matrixWorld);
     console.debug(`Camera Pose: ${JSON.stringify(newMetadata.pose)}`);
     saveJSON(newMetadata, 'metadata.json');
 };
@@ -55958,8 +55958,9 @@ const resetGroupPose = (group) => {
  * @param camera The `PerspectiveCamera` object that is responsible for rendering the scene (on desktop, not XR).
  * @param group The group that holds all the scene geometry.
  * @param controls The orbit controls for `camera`.
+ * @param metadata The video metadata object.
  */
-const resetCamera = (camera, group, controls) => {
+const resetCamera = (camera, group, controls, metadata) => {
     controls.reset();
     camera.position.set(0.0, 0.0, 0.0);
     camera.quaternion.set(0.0, 0.0, 0.0, 1.0);
@@ -55978,22 +55979,29 @@ function init() {
     const userGroup = new three__WEBPACK_IMPORTED_MODULE_0__["Group"]();
     const keys = {
         'r': 82,
-        'p': 80
+        'p': 80,
+        'l': 76
     };
     const videoFolder = getVideoFolder();
     document.title = `3D Video | ${videoFolder}`;
     const loadingOverlay = new LoadingOverlay();
     loadingOverlay.show();
     loadMetadata(videoFolder).then(metadata => {
+        let usedCachedPose = true;
         const onDocumentKeyDown = (event) => {
             const keyCode = event.which;
             switch (keyCode) {
                 case keys.r: {
-                    resetCamera(camera, userGroup, controls);
+                    resetCamera(camera, userGroup, controls, metadata);
                     break;
                 }
                 case keys.p: {
-                    updateMetadata(camera, renderer, metadata);
+                    updateMetadata(camera, metadata);
+                    break;
+                }
+                case keys.l: {
+                    usedCachedPose = !usedCachedPose;
+                    console.debug(`Using cached pose form metadata is: ${usedCachedPose ? "enabled" : "disabled"}.`);
                     break;
                 }
                 default:
@@ -56028,6 +56036,7 @@ function init() {
         const clock = new three__WEBPACK_IMPORTED_MODULE_0__["Clock"]();
         // we add an ambient light source to the scene
         scene.add(new three__WEBPACK_IMPORTED_MODULE_0__["AmbientLight"](0xffffff));
+        scene.add(userGroup);
         const onSceneLoaded = () => {
             var _a;
             // Ensure that the two clips will be synced
@@ -56038,33 +56047,41 @@ function init() {
             staticElements.addMeshes(userGroup);
             dynamicElements.reset();
             staticElements.reset();
-            resetCamera(camera, userGroup, controls);
+            resetCamera(camera, userGroup, controls, metadata);
             renderer.xr.enabled = true;
             renderer.xr.setReferenceSpaceType('local');
             document.body.appendChild(three_examples_jsm_webxr_VRButton_js__WEBPACK_IMPORTED_MODULE_3__["VRButton"].createButton(renderer));
             loadingOverlay.hide();
             clock.start();
         };
-        scene.add(userGroup);
         // This is used to keep track of the camera pose before entering XR.
-        let cameraPose = null;
+        let cameraPosition = null;
+        let cameraRotation = null;
         // Have to use `xr` as type any as a workaround for no property error for `addEventListener` on `renderer.xr`.
         const xr = renderer.xr;
         xr.addEventListener('sessionstart', () => {
-            cameraPose = camera.matrixWorld.clone();
-            const { position, rotation } = decompose(cameraPose);
-            const inverse_rotation = rotation.conjugate();
-            const translation = position.negate().applyQuaternion(inverse_rotation);
+            if (usedCachedPose && metadata.hasOwnProperty('pose')) {
+                const { position, rotation } = metadata.pose;
+                cameraPosition = new three__WEBPACK_IMPORTED_MODULE_0__["Vector3"](position.x, position.y, position.z);
+                cameraRotation = new three__WEBPACK_IMPORTED_MODULE_0__["Quaternion"](rotation.x, rotation.y, rotation.z, rotation.w);
+            }
+            else {
+                const cameraPose = camera.matrixWorld.clone();
+                const pose = decompose(cameraPose);
+                cameraPosition = pose.position;
+                cameraRotation = pose.rotation;
+            }
+            const inverse_rotation = cameraRotation.conjugate();
+            const translation = cameraPosition.negate().applyQuaternion(inverse_rotation);
             userGroup.quaternion.multiplyQuaternions(inverse_rotation, userGroup.quaternion);
             userGroup.position.addVectors(userGroup.position, translation);
             console.debug("Entered XR mode.");
         });
         xr.addEventListener('sessionend', () => {
             resetGroupPose(userGroup);
-            if (cameraPose != null) {
-                const { position, rotation } = decompose(cameraPose);
-                camera.position.copy(position);
-                camera.quaternion.copy(rotation);
+            if (cameraPosition != null && cameraRotation != null) {
+                camera.position.copy(cameraPosition);
+                camera.quaternion.copy(cameraRotation);
             }
             console.debug("Exited XR mode.");
         });
