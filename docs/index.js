@@ -55722,11 +55722,27 @@ class MeshVideo {
         this.numFrames = 0;
         this.hasLoaded = false;
     }
-    // Go to the start of the video sequence.
+    /**
+     * Go to the start of the video sequence.
+     */
     reset() {
         this.currentFrameIndex = 0;
         this.timeSinceLastMeshSwap = 0.0;
         this.displayedFrameIndex = null;
+        for (const framesKey in this.frames) {
+            const mesh = this.frames[framesKey];
+            mesh.visible = false;
+        }
+    }
+    /**
+     * Add the meshes in this video to a group.
+     * @param group The group to add the meshes to.
+     */
+    addMeshes(group) {
+        for (const frameKey in this.frames) {
+            const mesh = this.frames[frameKey];
+            group.add(mesh);
+        }
     }
     /**
      * Load the mesh data from disk.
@@ -55768,9 +55784,8 @@ class MeshVideo {
     /**
      * Perform a frame update if enough time has elapsed since the last update.
      * @param delta The time since the last call to this method.
-     * @param scene The scene object to display the mesh(es) in.
      */
-    update(delta, scene) {
+    update(delta) {
         if (!this.hasLoaded) {
             return;
         }
@@ -55783,21 +55798,20 @@ class MeshVideo {
             if (framesSinceLastUpdate > 1) {
                 console.debug(`Catching up by skipping ${framesSinceLastUpdate - 1} frames...`);
             }
-            this.step(scene, framesSinceLastUpdate);
+            this.step(framesSinceLastUpdate);
         }
     }
     /**
      * Advance some number of frames.
-     * @param scene The scene object to update.
      * @param times How many frames to step through (default=1).
      * @private
      */
-    step(scene, times = 1) {
+    step(times = 1) {
         const previousFrameIndex = this.displayedFrameIndex;
         const nextFrameIndex = (this.currentFrameIndex + times) % this.numFrames;
         if (this.isStaticMesh && this.displayedFrameIndex === null) {
             const index = parseInt(Object.keys(this.frames)[0]);
-            scene.add(this.frames[index]);
+            this.frames[index].visible = true;
             this.displayedFrameIndex = index;
         }
         else {
@@ -55806,10 +55820,10 @@ class MeshVideo {
             const shouldUpdateFrame = (this.persistFrame && hasNextFrame) || !this.persistFrame;
             if (shouldUpdateFrame) {
                 if (hasPreviousFrame) {
-                    scene.remove(this.frames[previousFrameIndex]);
+                    this.frames[previousFrameIndex].visible = false;
                 }
                 if (hasNextFrame) {
-                    scene.add(this.frames[nextFrameIndex]);
+                    this.frames[nextFrameIndex].visible = true;
                     this.displayedFrameIndex = nextFrameIndex;
                 }
             }
@@ -55817,6 +55831,9 @@ class MeshVideo {
         this.currentFrameIndex = nextFrameIndex;
     }
 }
+/**
+ * Displays an overlay over the renderer and shows a progress spinner while the assets load in.
+ */
 class LoadingOverlay {
     constructor() {
         this.loaderGUI = document.getElementById("loader-overlay");
@@ -55839,9 +55856,6 @@ const createRenderer = (width, height) => {
     renderer.setSize(width, height);
     document.body.appendChild(renderer.domElement);
     renderer.setClearColor(0x000000, 1);
-    renderer.xr.enabled = true;
-    renderer.xr.setReferenceSpaceType('local');
-    document.body.appendChild(three_examples_jsm_webxr_VRButton_js__WEBPACK_IMPORTED_MODULE_3__["VRButton"].createButton(renderer));
     return renderer;
 };
 const createControls = (camera, renderer) => {
@@ -55897,6 +55911,62 @@ const saveJSON = (content, fileName, contentType = 'text/plain') => {
     a.download = fileName;
     a.click();
 };
+const decompose = (poseMatrix) => {
+    const position = new three__WEBPACK_IMPORTED_MODULE_0__["Vector3"]();
+    const rotation = new three__WEBPACK_IMPORTED_MODULE_0__["Quaternion"]();
+    position.setFromMatrixPosition(poseMatrix);
+    rotation.setFromRotationMatrix(poseMatrix);
+    return {
+        position: position,
+        rotation: rotation
+    };
+};
+const getPoseJSON = (camera) => {
+    const { position, rotation } = decompose(camera.matrixWorld);
+    return {
+        'position': {
+            'x': position.x,
+            'y': position.y,
+            'z': position.z
+        },
+        'rotation': {
+            'x': rotation.x,
+            'y': rotation.y,
+            'z': rotation.z,
+            'w': rotation.w
+        }
+    };
+};
+const updateMetadata = (camera, renderer, metadata) => {
+    let newMetadata = Object.assign({}, metadata);
+    newMetadata.pose = getPoseJSON(camera);
+    console.debug(`Camera Pose: ${JSON.stringify(newMetadata.pose)}`);
+    saveJSON(newMetadata, 'metadata.json');
+};
+/**
+ * Reset the position and orientation of a group.
+ *
+ * The group is moved down to that (what is hopefully) the center of the mesh is at eye level.
+ * @param group The group that holds all the scene geometry.
+ */
+const resetGroupPose = (group) => {
+    group.position.set(0.0, -1.5, 0.0);
+    group.quaternion.set(0.0, 0.0, 0.0, 1.0);
+};
+/**
+ * Resets a camera, its controls, and the group that holds the scene geometry to the default head-on view.
+ * @param camera The `PerspectiveCamera` object that is responsible for rendering the scene (on desktop, not XR).
+ * @param group The group that holds all the scene geometry.
+ * @param controls The orbit controls for `camera`.
+ */
+const resetCamera = (camera, group, controls) => {
+    controls.reset();
+    camera.position.set(0.0, 0.0, 0.0);
+    camera.quaternion.set(0.0, 0.0, 0.0, 1.0);
+    camera.position.setZ(-1.5);
+    camera.lookAt(0, 0, 0);
+    resetGroupPose(group);
+};
 function init() {
     const canvasWidth = window.innerWidth;
     const canvasHeight = window.innerHeight;
@@ -55905,6 +55975,7 @@ function init() {
     const renderer = createRenderer(canvasWidth, canvasHeight);
     const controls = createControls(camera, renderer);
     const stats = createStatsPanel();
+    const userGroup = new three__WEBPACK_IMPORTED_MODULE_0__["Group"]();
     const keys = {
         'r': 82,
         'p': 80
@@ -55914,52 +55985,15 @@ function init() {
     const loadingOverlay = new LoadingOverlay();
     loadingOverlay.show();
     loadMetadata(videoFolder).then(metadata => {
-        const resetCamera = () => {
-            controls.reset();
-            if (metadata.hasOwnProperty('position') && metadata.hasOwnProperty('rotation')) {
-                const position = metadata.position;
-                const rotation = metadata.rotation;
-                console.debug(`Using initial pose from metadata: ${JSON.stringify({ 'position': position, 'rotation': rotation })}`);
-                camera.position.x = position.x;
-                camera.position.y = position.y;
-                camera.position.z = position.z;
-                camera.rotation.x = rotation.x;
-                camera.rotation.y = rotation.y;
-                camera.rotation.z = rotation.z;
-            }
-            else {
-                camera.position.z = -1.5;
-                camera.lookAt(0, 0, 0);
-            }
-            // Have to move the world instead of the camera to get the controls to behave correctly...
-            scene.position.y = -1.5;
-        };
-        const updateMetadata = () => {
-            const pose = {
-                'position': camera.position,
-                'rotation': {
-                    'x': camera.rotation.x,
-                    'y': camera.rotation.y,
-                    'z': camera.rotation.z
-                }
-            };
-            let newMetadata = Object.assign(Object.assign({}, metadata), pose);
-            saveJSON(newMetadata, 'metadata.json');
-        };
         const onDocumentKeyDown = (event) => {
             const keyCode = event.which;
             switch (keyCode) {
                 case keys.r: {
-                    resetCamera();
+                    resetCamera(camera, userGroup, controls);
                     break;
                 }
                 case keys.p: {
-                    console.info(`Camera position: (${camera.position.x}, ${camera.position.y}, ${camera.position.z})`);
-                    console.info(`Camera rotation: (${camera.rotation.x}, ${camera.rotation.y}, ${camera.rotation.z})`);
-                    let cameraDirection = new three__WEBPACK_IMPORTED_MODULE_0__["Vector3"]();
-                    camera.getWorldDirection(cameraDirection);
-                    console.info(`Camera direction: (${cameraDirection.x}, ${cameraDirection.y}, ${cameraDirection.z})`);
-                    updateMetadata();
+                    updateMetadata(camera, renderer, metadata);
                     break;
                 }
                 default:
@@ -55992,39 +56026,56 @@ function init() {
             scene.background = loadSkybox();
         }
         const clock = new three__WEBPACK_IMPORTED_MODULE_0__["Clock"]();
-        var isXRCameraFixed = false;
         // we add an ambient light source to the scene
-        var light = new three__WEBPACK_IMPORTED_MODULE_0__["AmbientLight"](0xffffff);
-        scene.add(light);
-        renderer.setAnimationLoop(() => {
+        scene.add(new three__WEBPACK_IMPORTED_MODULE_0__["AmbientLight"](0xffffff));
+        const onSceneLoaded = () => {
             var _a;
+            // Ensure that the two clips will be synced
+            const numFrames = (_a = metadata["num_frames"]) !== null && _a !== void 0 ? _a : Math.max(staticElements.numFrames, dynamicElements.numFrames);
+            dynamicElements.numFrames = numFrames;
+            staticElements.numFrames = numFrames;
+            dynamicElements.addMeshes(userGroup);
+            staticElements.addMeshes(userGroup);
+            dynamicElements.reset();
+            staticElements.reset();
+            resetCamera(camera, userGroup, controls);
+            renderer.xr.enabled = true;
+            renderer.xr.setReferenceSpaceType('local');
+            document.body.appendChild(three_examples_jsm_webxr_VRButton_js__WEBPACK_IMPORTED_MODULE_3__["VRButton"].createButton(renderer));
+            loadingOverlay.hide();
+            clock.start();
+        };
+        scene.add(userGroup);
+        // This is used to keep track of the camera pose before entering XR.
+        let cameraPose = null;
+        // Have to use `xr` as type any as a workaround for no property error for `addEventListener` on `renderer.xr`.
+        const xr = renderer.xr;
+        xr.addEventListener('sessionstart', () => {
+            cameraPose = camera.matrixWorld.clone();
+            const { position, rotation } = decompose(cameraPose);
+            const inverse_rotation = rotation.conjugate();
+            const translation = position.negate().applyQuaternion(inverse_rotation);
+            userGroup.quaternion.multiplyQuaternions(inverse_rotation, userGroup.quaternion);
+            userGroup.position.addVectors(userGroup.position, translation);
+            console.debug("Entered XR mode.");
+        });
+        xr.addEventListener('sessionend', () => {
+            resetGroupPose(userGroup);
+            if (cameraPose != null) {
+                const { position, rotation } = decompose(cameraPose);
+                camera.position.copy(position);
+                camera.quaternion.copy(rotation);
+            }
+            console.debug("Exited XR mode.");
+        });
+        renderer.setAnimationLoop(() => {
             stats.begin();
             if (loadingOverlay.isVisible && dynamicElements.hasLoaded && staticElements.hasLoaded) {
-                // Ensure that the two clips will be synced
-                const numFrames = (_a = metadata["num_frames"]) !== null && _a !== void 0 ? _a : Math.max(staticElements.numFrames, dynamicElements.numFrames);
-                dynamicElements.numFrames = numFrames;
-                staticElements.numFrames = numFrames;
-                dynamicElements.reset();
-                staticElements.reset();
-                resetCamera();
-                loadingOverlay.hide();
-                clock.start();
-            }
-            // fix the initial position of the VR camera
-            if (renderer.xr.isPresenting && isXRCameraFixed == false) {
-                const userGroup = new three__WEBPACK_IMPORTED_MODULE_0__["Group"]();
-                // since we move the scene to be "centered" on the trackball controller,
-                // we need to move the controllers to match the new scene location
-                userGroup.translateY(1.5);
-                userGroup.add(camera);
-                userGroup.translateZ(-1);
-                scene.add(userGroup);
-                userGroup.rotateY(Math.PI);
-                isXRCameraFixed = true;
+                onSceneLoaded();
             }
             const delta = clock.getDelta();
-            dynamicElements.update(delta, scene);
-            staticElements.update(delta, scene);
+            dynamicElements.update(delta);
+            staticElements.update(delta);
             controls.update();
             renderer.render(scene, camera);
             stats.end();

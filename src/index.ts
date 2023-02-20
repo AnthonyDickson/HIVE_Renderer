@@ -18,7 +18,7 @@ class MeshVideo {
     private readonly sceneName: string
     private loader: GLTFLoader
 
-    readonly frames: { number: THREE.Mesh }
+    private readonly frames: { number: THREE.Mesh }
     private readonly useVertexColour: boolean
     private readonly persistFrame: boolean
     private readonly swapMeshInterval: number
@@ -58,11 +58,29 @@ class MeshVideo {
         this.hasLoaded = false
     }
 
-    // Go to the start of the video sequence.
+    /**
+     * Go to the start of the video sequence.
+     */
     reset() {
         this.currentFrameIndex = 0
         this.timeSinceLastMeshSwap = 0.0
         this.displayedFrameIndex = null
+
+        for (const framesKey in this.frames) {
+            const mesh = this.frames[framesKey]
+            mesh.visible = false
+        }
+    }
+
+    /**
+     * Add the meshes in this video to a group.
+     * @param group The group to add the meshes to.
+     */
+    addMeshes(group: THREE.Group) {
+        for (const frameKey in this.frames) {
+            const mesh = this.frames[frameKey]
+            group.add(mesh)
+        }
     }
 
     /**
@@ -121,9 +139,8 @@ class MeshVideo {
     /**
      * Perform a frame update if enough time has elapsed since the last update.
      * @param delta The time since the last call to this method.
-     * @param scene The scene object to display the mesh(es) in.
      */
-    update(delta: number, scene: THREE.Scene | THREE.Group) {
+    update(delta: number) {
         if (!this.hasLoaded) {
             return
         }
@@ -140,17 +157,16 @@ class MeshVideo {
                 console.debug(`Catching up by skipping ${framesSinceLastUpdate - 1} frames...`)
             }
 
-            this.step(scene, framesSinceLastUpdate)
+            this.step(framesSinceLastUpdate)
         }
     }
 
     /**
      * Advance some number of frames.
-     * @param scene The scene object to update.
      * @param times How many frames to step through (default=1).
      * @private
      */
-    private step(scene: THREE.Scene | THREE.Group, times=1) {
+    private step(times=1) {
         const previousFrameIndex = this.displayedFrameIndex
         const nextFrameIndex = (this.currentFrameIndex + times) % this.numFrames
 
@@ -180,6 +196,9 @@ class MeshVideo {
     }
 }
 
+/**
+ * Displays an overlay over the renderer and shows a progress spinner while the assets load in.
+ */
 class LoadingOverlay {
     private readonly loaderGUI: HTMLElement
     private readonly rendererGUI: HTMLElement
@@ -281,16 +300,32 @@ const saveJSON = (content, fileName, contentType = 'text/plain') => {
 }
 
 interface Vector3 {x: number, y: number, z: number}
-interface Vector4 {x: number, y: number, z: number, w: number}
-interface Pose {position: Vector3, rotation: Vector4}
+interface Vector4 {
+    x: number,
+    y: number,
+    z: number,
+    w: number
+}
 
-const getPoseFromCamera = (camera): Pose => {
+interface Pose {
+    position: Vector3,
+    rotation: Vector4
+}
+
+const decompose = (poseMatrix) => {
     const position = new THREE.Vector3()
     const rotation = new THREE.Quaternion()
-    const matrixWorld = camera.matrixWorld
 
-    position.setFromMatrixPosition(matrixWorld)
-    rotation.setFromRotationMatrix(matrixWorld)
+    position.setFromMatrixPosition(poseMatrix)
+    rotation.setFromRotationMatrix(poseMatrix)
+
+    return {
+        position: position,
+        rotation: rotation
+    }
+}
+const getPoseJSON = (camera): Pose => {
+    const {position, rotation} = decompose(camera.matrixWorld)
 
     return {
         'position': {
@@ -310,31 +345,40 @@ const getPoseFromCamera = (camera): Pose => {
 const updateMetadata = (camera, renderer, metadata) => {
     let newMetadata = {...metadata}
 
-    newMetadata.pose = getPoseFromCamera(camera)
+    newMetadata.pose = getPoseJSON(camera)
 
     console.debug(`Camera Pose: ${JSON.stringify(newMetadata.pose)}`)
-
-    if (renderer.xr.isPresenting) {
-        const headsetCamera = renderer.xr.getCamera()
-        newMetadata.headsetPose = getPoseFromCamera(headsetCamera)
-
-        console.debug(`Headset Pose: ${JSON.stringify(newMetadata.headsetPose)}`)
-    }
 
     saveJSON(newMetadata, 'metadata.json' )
 }
 
-const applyPose = (object, pose: Pose, inverse=false) => {
-    const position = new THREE.Vector3(pose.position.x, pose.position.y, pose.position.z)
-    const rotation = new THREE.Quaternion(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w)
+/**
+ * Reset the position and orientation of a group.
+ *
+ * The group is moved down to that (what is hopefully) the center of the mesh is at eye level.
+ * @param group The group that holds all the scene geometry.
+ */
+const resetGroupPose = (group) => {
+    group.position.set(0.0, -1.5, 0.0)
+    group.quaternion.set(0.0, 0.0, 0.0, 1.0)
+}
 
-    if (inverse) {
-        object.quaternion.multiply(rotation.conjugate())
-        object.position.add(position.negate())
-    } else {
-        object.position.add(position)
-        object.quaternion.multiply(rotation)
-    }
+/**
+ * Resets a camera, its controls, and the group that holds the scene geometry to the default head-on view.
+ * @param camera The `PerspectiveCamera` object that is responsible for rendering the scene (on desktop, not XR).
+ * @param group The group that holds all the scene geometry.
+ * @param controls The orbit controls for `camera`.
+ */
+const resetCamera = (camera, group, controls) => {
+    controls.reset()
+
+    camera.position.set(0.0, 0.0, 0.0)
+    camera.quaternion.set(0.0, 0.0, 0.0, 1.0)
+
+    camera.position.setZ(-1.5)
+    camera.lookAt(0, 0, 0)
+
+    resetGroupPose(group)
 }
 
 function init() {
@@ -358,35 +402,12 @@ function init() {
     loadingOverlay.show()
 
     loadMetadata(videoFolder).then(metadata => {
-        const resetCamera = () => {
-            controls.reset()
-
-            camera.position.set(0.0, 0.0, 0.0)
-            camera.quaternion.set(0.0, 0.0, 0.0, 1.0)
-
-            camera.position.setZ(-1.5)
-            camera.lookAt(0, 0, 0)
-
-            // if (metadata.hasOwnProperty('pose')) {
-            //     const pose = metadata.pose
-            //     console.debug(`Using initial pose from metadata: ${JSON.stringify(pose)}`)
-            //
-            //     applyPose(camera, pose)
-            // } else {
-            //     camera.position.setZ(-1.5)
-            //     camera.lookAt(0, 0, 0)
-            // }
-
-            // Have to move the world instead of the camera to get the controls to behave correctly...
-            // scene.position.setY(-1.5)
-        }
-
         const onDocumentKeyDown = (event) => {
             const keyCode = event.which
 
             switch (keyCode) {
                 case keys.r: {
-                    resetCamera()
+                    resetCamera(camera, userGroup, controls)
                     break
                 }
                 case keys.p: {
@@ -439,22 +460,13 @@ function init() {
             dynamicElements.numFrames = numFrames
             staticElements.numFrames = numFrames
 
+            dynamicElements.addMeshes(userGroup)
+            staticElements.addMeshes(userGroup)
+
             dynamicElements.reset()
             staticElements.reset()
 
-            Object.keys(dynamicElements.frames).forEach(frame => {
-                const mesh = dynamicElements.frames[frame]
-                mesh.visible = false
-                userGroup.add(mesh)
-            });
-
-            Object.keys(staticElements.frames).forEach(frame => {
-                const mesh = staticElements.frames[frame]
-                mesh.visible = false
-                userGroup.add(mesh)
-            });
-
-            resetCamera()
+            resetCamera(camera, userGroup, controls)
 
             renderer.xr.enabled = true
             renderer.xr.setReferenceSpaceType('local')
@@ -467,73 +479,35 @@ function init() {
 
         scene.add(userGroup)
 
-        // Have to use `xr` as type any as a workaround for no property error for `addEventListener` on `renderer.xr`.
-        const xr: any = renderer.xr
+        // This is used to keep track of the camera pose before entering XR.
         let cameraPose = null
 
+        // Have to use `xr` as type any as a workaround for no property error for `addEventListener` on `renderer.xr`.
+        const xr: any = renderer.xr
+
         xr.addEventListener('sessionstart', () => {
-            // since we move the scene to be "centered" on the trackball controller,
-            // we need to move the controllers to match the new scene location
-            // userGroup.position.set(0.0, 0.0, 0.0)
-            // userGroup.rotation.set(0.0, 0.0, 0.0)
-
-            // userGroup.translateY(1.5)
-            // userGroup.add(camera)
-            // userGroup.translateZ(-1.5)
-            // userGroup.rotateY(Math.PI)
-
             cameraPose = camera.matrixWorld.clone()
-                    
-            const position = new THREE.Vector3()
-            const rotation = new THREE.Quaternion()
 
-            position.setFromMatrixPosition(cameraPose)
-            rotation.setFromRotationMatrix(cameraPose)
-            console.debug("camera pose", cameraPose.elements)
-            console.debug("camera position/rotation", position, rotation)
-            console.debug("group matrix", userGroup.matrixWorld.elements)
+            const {position, rotation} = decompose(cameraPose)
 
-            // userGroup.matrixWorld = cameraPose.invert().multiply(userGroup.matrixWorld)
-            // userGroup.matrixWorld.multiplyMatrices(cameraPose.invert(), userGroup.matrixWorld)
-            userGroup.position.set(-position.x, -position.y, -position.z)
-            userGroup.quaternion.set(rotation.conjugate().x, rotation.conjugate().y, rotation.conjugate().z, rotation.conjugate().w)
-            console.debug("group matrix", userGroup.matrixWorld.elements)
+            const inverse_rotation = rotation.conjugate()
+            const translation = position.negate().applyQuaternion(inverse_rotation)
 
-
-            // if (metadata.hasOwnProperty('headsetPose')) {
-            //     console.debug(`Initialising headset with pose: ${JSON.stringify(metadata.headsetPose)}`)
-            //     headsetCamera = renderer.xr.getCamera()
-            //     // userGroup.add(headsetCamera)
-            //     applyPose(headsetCamera , metadata.headsetPose, true)
-            // } else {
-            // }
+            userGroup.quaternion.multiplyQuaternions(inverse_rotation, userGroup.quaternion)
+            userGroup.position.addVectors(userGroup.position, translation)
 
             console.debug("Entered XR mode.")
         })
 
         xr.addEventListener('sessionend', () => {
-            // if (metadata.hasOwnProperty('headsetPose')) {
-            //     applyPose(headsetCamera , metadata.headsetPose)
-            //     // userGroup.remove(headsetCamera)
-            // } else {
-            // }
-            // userGroup.matrix
+            resetGroupPose(userGroup)
 
-            if (cameraPose != null) { 
-                userGroup.position.set(0.0, 0.0, 0.0)
-                userGroup.quaternion.set(0.0, 0.0, 0.0, 1.0)
-                // userGroup.matrixWorld.multiplyMatrices(cameraPose, userGroup.matrixWorld)
+            if (cameraPose != null) {
+                const {position, rotation} = decompose(cameraPose)
+
+                camera.position.copy(position)
+                camera.quaternion.copy(rotation)
             }
-
-            // userGroup.rotateY(Math.PI)
-            // userGroup.translateZ(1.5)
-            // userGroup.remove(camera)
-            // userGroup.translateY(-1.5)
-
-            // userGroup.rotation.set(0.0, 0.0, 0.0)
-            // userGroup.position.set(0.0, 0.0, 0.0)
-
-            resetCamera()
 
             console.debug("Exited XR mode.")
         })
@@ -547,8 +521,8 @@ function init() {
 
             const delta = clock.getDelta()
 
-            dynamicElements.update(delta, userGroup)
-            staticElements.update(delta, userGroup)
+            dynamicElements.update(delta)
+            staticElements.update(delta)
             controls.update()
 
             renderer.render(scene, camera)
