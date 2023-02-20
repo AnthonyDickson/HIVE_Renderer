@@ -368,9 +368,8 @@ const resetGroupPose = (group) => {
  * @param camera The `PerspectiveCamera` object that is responsible for rendering the scene (on desktop, not XR).
  * @param group The group that holds all the scene geometry.
  * @param controls The orbit controls for `camera`.
- * @param metadata The video metadata object.
  */
-const resetCamera = (camera, group, controls, metadata) => {
+const resetCamera = (camera, group, controls) => {
     controls.reset()
 
     camera.position.set(0.0, 0.0, 0.0)
@@ -382,6 +381,28 @@ const resetCamera = (camera, group, controls, metadata) => {
     resetGroupPose(group)
 }
 
+
+/** Mapping of keyboard strokes and their key codes. */
+const keyCodes = {
+    'space': 32,
+    'c': 67,
+    'l': 76,
+    'p': 80,
+    'r': 82,
+    's': 83,
+}
+const printKeyboardShortcuts = keyBindings => {
+    console.info("Keyboard shortcuts:")
+
+    for (const key in keyCodes) {
+        const keyCode = keyCodes[key]
+
+        if (keyBindings.hasOwnProperty(keyCode)) {
+            console.info(`${key}: ${keyBindings[keyCode].description}`)
+        }
+    }
+}
+
 function init() {
     const canvasWidth = window.innerWidth
     const canvasHeight = window.innerHeight
@@ -391,11 +412,6 @@ function init() {
     const controls = createControls(camera, renderer)
     const stats = createStatsPanel()
     const userGroup = new THREE.Group()
-    const keys = {
-        'r': 82,
-        'p': 80,
-        'l': 76
-    }
 
     const videoFolder = getVideoFolder()
     document.title = `3D Video | ${videoFolder}`
@@ -404,30 +420,58 @@ function init() {
     loadingOverlay.show()
 
     loadMetadata(videoFolder).then(metadata => {
-        let usedCachedPose = true
+        let useCachedPose = true
+        let isPlaying = true
+
+        const keyBindings = {
+            [keyCodes.space]: {
+                description: "Pause/play the video.",
+                action: () => {
+                    isPlaying = !isPlaying
+                    console.info(`Video is now ${isPlaying ? "playing" : "paused"}.`)
+                }
+            },
+            [keyCodes.c]: {
+                description: "Reset the camera's position and rotation.",
+                action: () => {
+                    console.info("Resetting camera position...")
+                    resetCamera(camera, userGroup, controls)
+                }
+            },
+            [keyCodes.l]: {
+                description: "Toggle whether to use camera pose from metadata for XR headset.",
+                action: () => {
+                    useCachedPose = !useCachedPose
+                    console.info(`Using cached pose from metadata is: ${useCachedPose ? "enabled" : "disabled"}.`)
+                }
+            },
+            [keyCodes.r]: {
+                description: "Restart the video playback.",
+                action: () => {
+                    console.info("Restarting video playback...")
+                    staticElements.reset()
+                    dynamicElements.reset()
+                }
+            },
+            [keyCodes.p]: {
+                description: "Save the the camera's pose and metadata to disk.",
+                action: () => {
+                    console.info("Saving metadata with camera pose...")
+                    updateMetadata(camera, metadata)
+                }
+            },
+        }
 
         const onDocumentKeyDown = (event) => {
             const keyCode = event.which
 
-            switch (keyCode) {
-                case keys.r: {
-                    resetCamera(camera, userGroup, controls, metadata)
-                    break
-                }
-                case keys.p: {
-                    updateMetadata(camera, metadata)
-                    break
-                }
-                case keys.l: {
-                    usedCachedPose = !usedCachedPose
-                    console.debug(`Using cached pose form metadata is: ${usedCachedPose ? "enabled" : "disabled"}.`)
-                    break
-                }
-                default:
-                    console.debug(`Key ${keyCode} pressed.`)
+            if (keyBindings.hasOwnProperty(keyCode)) {
+                keyBindings[keyCode].action()
+            } else {
+                console.debug(`Key ${keyCode} pressed.`)
             }
         }
-        document.addEventListener("keydown", onDocumentKeyDown, false);
+        document.addEventListener("keydown", onDocumentKeyDown, false)
 
         const loader = new GLTFLoader()
         const swapMeshInterval = 1.0 / metadata["fps"] // seconds
@@ -467,20 +511,20 @@ function init() {
         const onSceneLoaded = () => {
             // Ensure that the two clips will be synced
             const numFrames = metadata["num_frames"] ?? Math.max(staticElements.numFrames, dynamicElements.numFrames)
-            dynamicElements.numFrames = numFrames
-            staticElements.numFrames = numFrames
 
-            dynamicElements.addMeshes(userGroup)
-            staticElements.addMeshes(userGroup)
+            for (const scene of [dynamicElements, staticElements]) {
+                scene.numFrames = numFrames
+                scene.addMeshes(userGroup)
+                scene.reset()
+            }
 
-            dynamicElements.reset()
-            staticElements.reset()
-
-            resetCamera(camera, userGroup, controls, metadata)
+            resetCamera(camera, userGroup, controls)
 
             renderer.xr.enabled = true
             renderer.xr.setReferenceSpaceType('local')
             document.body.appendChild(VRButton.createButton(renderer))
+
+            printKeyboardShortcuts(keyBindings)
 
             loadingOverlay.hide()
 
@@ -488,31 +532,34 @@ function init() {
         }
 
         // This is used to keep track of the camera pose before entering XR.
-        let cameraPosition = null
-        let cameraRotation = null
+        let desktopCameraPose = null
 
         // Have to use `xr` as type any as a workaround for no property error for `addEventListener` on `renderer.xr`.
         const xr: any = renderer.xr
 
         xr.addEventListener('sessionstart', () => {
-            if (usedCachedPose && metadata.hasOwnProperty('pose')) {
+            desktopCameraPose = camera.matrixWorld.clone()
+
+            const pose = decompose(desktopCameraPose)
+
+            let xrCameraPosition = pose.position
+            let xrCameraRotation = pose.rotation
+
+            if (useCachedPose && metadata.hasOwnProperty('pose')) {
                 const {position, rotation} = metadata.pose
 
-                cameraPosition = new THREE.Vector3(position.x, position.y, position.z)
-                cameraRotation = new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w)
-            } else {
-                const cameraPose = camera.matrixWorld.clone()
-
-                const pose = decompose(cameraPose)
-                cameraPosition = pose.position
-                cameraRotation = pose.rotation
+                xrCameraPosition = new THREE.Vector3(position.x, position.y, position.z)
+                xrCameraRotation = new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w)
             }
 
-            const inverse_rotation = cameraRotation.conjugate()
-            const translation = cameraPosition.negate().applyQuaternion(inverse_rotation)
+            const inverse_rotation = xrCameraRotation.conjugate()
+            const translation = xrCameraPosition.negate().applyQuaternion(inverse_rotation)
 
             userGroup.quaternion.multiplyQuaternions(inverse_rotation, userGroup.quaternion)
             userGroup.position.addVectors(userGroup.position, translation)
+
+            dynamicElements.reset()
+            staticElements.reset()
 
             console.debug("Entered XR mode.")
         })
@@ -520,9 +567,10 @@ function init() {
         xr.addEventListener('sessionend', () => {
             resetGroupPose(userGroup)
 
-            if (cameraPosition != null && cameraRotation != null) {
-                camera.position.copy(cameraPosition)
-                camera.quaternion.copy(cameraRotation)
+            if (desktopCameraPose != null) {
+                const {position, rotation} = decompose(desktopCameraPose)
+                camera.position.copy(position)
+                camera.quaternion.copy(rotation)
             }
 
             console.debug("Exited XR mode.")
@@ -537,8 +585,11 @@ function init() {
 
             const delta = clock.getDelta()
 
-            dynamicElements.update(delta)
-            staticElements.update(delta)
+            if (isPlaying) {
+                dynamicElements.update(delta)
+                staticElements.update(delta)
+            }
+
             controls.update()
 
             renderer.render(scene, camera)
