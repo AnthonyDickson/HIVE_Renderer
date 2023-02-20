@@ -18,7 +18,7 @@ class MeshVideo {
     private readonly sceneName: string
     private loader: GLTFLoader
 
-    private readonly frames: { number: THREE.Mesh }
+    readonly frames: { number: THREE.Mesh }
     private readonly useVertexColour: boolean
     private readonly persistFrame: boolean
     private readonly swapMeshInterval: number
@@ -156,7 +156,7 @@ class MeshVideo {
 
         if (this.isStaticMesh && this.displayedFrameIndex === null) {
             const index = parseInt(Object.keys(this.frames)[0])
-            scene.add(this.frames[index])
+            this.frames[index].visible = true
             this.displayedFrameIndex = index
         } else {
             const hasPreviousFrame = this.frames.hasOwnProperty(previousFrameIndex)
@@ -166,11 +166,11 @@ class MeshVideo {
 
             if (shouldUpdateFrame) {
                 if (hasPreviousFrame) {
-                    scene.remove(this.frames[previousFrameIndex])
+                    this.frames[previousFrameIndex].visible = false
                 }
 
                 if (hasNextFrame) {
-                    scene.add(this.frames[nextFrameIndex])
+                    this.frames[nextFrameIndex].visible = true
                     this.displayedFrameIndex = nextFrameIndex
                 }
             }
@@ -378,7 +378,7 @@ function init() {
             // }
 
             // Have to move the world instead of the camera to get the controls to behave correctly...
-            scene.position.setY(-1.5)
+            // scene.position.setY(-1.5)
         }
 
         const onDocumentKeyDown = (event) => {
@@ -442,6 +442,18 @@ function init() {
             dynamicElements.reset()
             staticElements.reset()
 
+            Object.keys(dynamicElements.frames).forEach(frame => {
+                const mesh = dynamicElements.frames[frame]
+                mesh.visible = false
+                userGroup.add(mesh)
+            });
+
+            Object.keys(staticElements.frames).forEach(frame => {
+                const mesh = staticElements.frames[frame]
+                mesh.visible = false
+                userGroup.add(mesh)
+            });
+
             resetCamera()
 
             renderer.xr.enabled = true
@@ -457,44 +469,69 @@ function init() {
 
         // Have to use `xr` as type any as a workaround for no property error for `addEventListener` on `renderer.xr`.
         const xr: any = renderer.xr
-        let headsetCamera = null
+        let cameraPose = null
 
         xr.addEventListener('sessionstart', () => {
             // since we move the scene to be "centered" on the trackball controller,
             // we need to move the controllers to match the new scene location
-            userGroup.position.set(0.0, 0.0, 0.0)
-            userGroup.rotation.set(0.0, 0.0, 0.0)
+            // userGroup.position.set(0.0, 0.0, 0.0)
+            // userGroup.rotation.set(0.0, 0.0, 0.0)
 
-            userGroup.translateY(1.5)
-            userGroup.add(camera)
-            userGroup.translateZ(-1.5)
-            userGroup.rotateY(Math.PI)
+            // userGroup.translateY(1.5)
+            // userGroup.add(camera)
+            // userGroup.translateZ(-1.5)
+            // userGroup.rotateY(Math.PI)
 
-            if (metadata.hasOwnProperty('headsetPose')) {
-                console.debug(`Initialising headset with pose: ${JSON.stringify(metadata.headsetPose)}`)
-                headsetCamera = renderer.xr.getCamera()
-                // userGroup.add(headsetCamera)
-                applyPose(userGroup, metadata.headsetPose, true)
-            } else {
-            }
+            cameraPose = camera.matrixWorld.clone()
+                    
+            const position = new THREE.Vector3()
+            const rotation = new THREE.Quaternion()
+
+            position.setFromMatrixPosition(cameraPose)
+            rotation.setFromRotationMatrix(cameraPose)
+            console.debug("camera pose", cameraPose.elements)
+            console.debug("camera position/rotation", position, rotation)
+            console.debug("group matrix", userGroup.matrixWorld.elements)
+
+            // userGroup.matrixWorld = cameraPose.invert().multiply(userGroup.matrixWorld)
+            // userGroup.matrixWorld.multiplyMatrices(cameraPose.invert(), userGroup.matrixWorld)
+            userGroup.position.set(-position.x, -position.y, -position.z)
+            userGroup.quaternion.set(rotation.conjugate().x, rotation.conjugate().y, rotation.conjugate().z, rotation.conjugate().w)
+            console.debug("group matrix", userGroup.matrixWorld.elements)
+
+
+            // if (metadata.hasOwnProperty('headsetPose')) {
+            //     console.debug(`Initialising headset with pose: ${JSON.stringify(metadata.headsetPose)}`)
+            //     headsetCamera = renderer.xr.getCamera()
+            //     // userGroup.add(headsetCamera)
+            //     applyPose(headsetCamera , metadata.headsetPose, true)
+            // } else {
+            // }
 
             console.debug("Entered XR mode.")
         })
 
         xr.addEventListener('sessionend', () => {
-            if (metadata.hasOwnProperty('headsetPose')) {
-                applyPose(userGroup, metadata.headsetPose)
-                // userGroup.remove(headsetCamera)
-            } else {
+            // if (metadata.hasOwnProperty('headsetPose')) {
+            //     applyPose(headsetCamera , metadata.headsetPose)
+            //     // userGroup.remove(headsetCamera)
+            // } else {
+            // }
+            // userGroup.matrix
+
+            if (cameraPose != null) { 
+                userGroup.position.set(0.0, 0.0, 0.0)
+                userGroup.quaternion.set(0.0, 0.0, 0.0, 1.0)
+                // userGroup.matrixWorld.multiplyMatrices(cameraPose, userGroup.matrixWorld)
             }
 
-            userGroup.rotateY(Math.PI)
-            userGroup.translateZ(1.5)
-            userGroup.remove(camera)
-            userGroup.translateY(-1.5)
+            // userGroup.rotateY(Math.PI)
+            // userGroup.translateZ(1.5)
+            // userGroup.remove(camera)
+            // userGroup.translateY(-1.5)
 
-            userGroup.rotation.set(0.0, 0.0, 0.0)
-            userGroup.position.set(0.0, 0.0, 0.0)
+            // userGroup.rotation.set(0.0, 0.0, 0.0)
+            // userGroup.position.set(0.0, 0.0, 0.0)
 
             resetCamera()
 
