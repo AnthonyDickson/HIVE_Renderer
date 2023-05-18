@@ -1,0 +1,27 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Build JavaScript " type="docker-deploy" factoryName="docker-image" server-name="Docker">
+    <deployment type="docker-image">
+      <settings>
+        <option name="imageTag" value="node-16:latest" />
+        <option name="command" value="build" />
+        <option name="containerName" value="" />
+        <option name="commandLineOptions" value="--rm" />
+        <option name="showCommandPreview" value="true" />
+        <option name="volumeBindings">
+          <list>
+            <DockerVolumeBindingImpl>
+              <option name="containerPath" value="/app/src" />
+              <option name="hostPath" value="$PROJECT_DIR$/src" />
+              <option name="readOnly" value="true" />
+            </DockerVolumeBindingImpl>
+            <DockerVolumeBindingImpl>
+              <option name="containerPath" value="/app/docs" />
+              <option name="hostPath" value="$PROJECT_DIR$/docs" />
+            </DockerVolumeBindingImpl>
+          </list>
+        </option>
+      </settings>
+    </deployment>
+    <method v="2" />
+  </configuration>
+</component>

@@ -55798,17 +55798,21 @@ class MeshVideo {
             if (framesSinceLastUpdate > 1) {
                 console.debug(`Catching up by skipping ${framesSinceLastUpdate - 1} frames...`);
             }
-            this.step(framesSinceLastUpdate);
+            const nextFrameIndex = (this.currentFrameIndex + framesSinceLastUpdate) % this.numFrames;
+            this.goToFrame(nextFrameIndex);
         }
     }
     /**
-     * Advance some number of frames.
-     * @param times How many frames to step through (default=1).
-     * @private
+     * Go to the specified frame.
+     * Throws an error If the given frame index is out of bounds.
+     *
+     * @param frameIndex The index of the frame to go to.
      */
-    step(times = 1) {
+    goToFrame(frameIndex) {
+        if (frameIndex < 0 || this.numFrames <= frameIndex) {
+            throw new Error(`The frame index ${frameIndex} is out of bounds for a video with ${this.numFrames} frames.`);
+        }
         const previousFrameIndex = this.displayedFrameIndex;
-        const nextFrameIndex = (this.currentFrameIndex + times) % this.numFrames;
         if (this.isStaticMesh && this.displayedFrameIndex === null) {
             const index = parseInt(Object.keys(this.frames)[0]);
             this.frames[index].visible = true;
@@ -55816,19 +55820,25 @@ class MeshVideo {
         }
         else {
             const hasPreviousFrame = this.frames.hasOwnProperty(previousFrameIndex);
-            const hasNextFrame = this.frames.hasOwnProperty(nextFrameIndex);
+            const hasNextFrame = this.frames.hasOwnProperty(frameIndex);
             const shouldUpdateFrame = (this.persistFrame && hasNextFrame) || !this.persistFrame;
             if (shouldUpdateFrame) {
                 if (hasPreviousFrame) {
                     this.frames[previousFrameIndex].visible = false;
                 }
                 if (hasNextFrame) {
-                    this.frames[nextFrameIndex].visible = true;
-                    this.displayedFrameIndex = nextFrameIndex;
+                    this.frames[frameIndex].visible = true;
+                    this.displayedFrameIndex = frameIndex;
                 }
             }
         }
-        this.currentFrameIndex = nextFrameIndex;
+        this.currentFrameIndex = frameIndex;
+    }
+    /**
+     * Get the index of the currently displayed frame.
+     */
+    getCurrentFrameIndex() {
+        return this.displayedFrameIndex;
     }
 }
 /**
@@ -55869,6 +55879,7 @@ const createStatsPanel = () => {
     const stats = Object(three_examples_jsm_libs_stats_module_js__WEBPACK_IMPORTED_MODULE_2__["default"])();
     stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
     document.body.appendChild(stats.dom);
+    stats.dom.hidden = true;
     return stats;
 };
 const getVideoFolder = () => {
@@ -55971,6 +55982,7 @@ const resetCamera = (camera, group, controls) => {
 const keyCodes = {
     'space': 32,
     'c': 67,
+    'g': 71,
     'l': 76,
     'p': 80,
     'r': 82,
@@ -56001,6 +56013,7 @@ function init() {
     loadMetadata(videoFolder).then(metadata => {
         let useCachedPose = true;
         let isPlaying = true;
+        let showStats = false;
         const keyBindings = {
             [keyCodes.space]: {
                 description: "Pause/play the video.",
@@ -56029,6 +56042,7 @@ function init() {
                     console.info("Restarting video playback...");
                     staticElements.reset();
                     dynamicElements.reset();
+                    isPlaying = true;
                 }
             },
             [keyCodes.p]: {
@@ -56038,6 +56052,32 @@ function init() {
                     updateMetadata(camera, metadata);
                 }
             },
+            [keyCodes.g]: {
+                description: "Go to a particular frame.",
+                action: () => {
+                    let frameIndex = prompt(`Which frame do you want to view? (0-${metadata["num_frames"] - 1})`, `${dynamicElements.getCurrentFrameIndex()}`);
+                    goToFrame(frameIndex);
+                }
+            },
+            [keyCodes.s]: {
+                description: "Show/hide the framerate statistics.",
+                action: () => {
+                    showStats = !showStats;
+                    stats.dom.hidden = !showStats;
+                }
+            }
+        };
+        const goToFrame = (frameIndexString) => {
+            try {
+                let frameIndex = parseInt(frameIndexString);
+                console.log(`Going to frame ${frameIndex}...`);
+                staticElements.goToFrame(frameIndex);
+                dynamicElements.goToFrame(frameIndex);
+                isPlaying = false;
+            }
+            catch (e) {
+                console.error(`Could not go to frame ${frameIndexString}.`);
+            }
         };
         const onDocumentKeyDown = (event) => {
             const keyCode = event.which;
