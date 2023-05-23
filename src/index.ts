@@ -1,13 +1,15 @@
 // @ts-ignore
 import * as THREE from 'three'
 // @ts-ignore
-import {TrackballControls} from 'three/examples/jsm/controls/TrackballControls.js'
+import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js'
 // @ts-ignore
 import Stats from "three/examples/jsm/libs/stats.module.js"
 // @ts-ignore
-import {VRButton} from 'three/examples/jsm/webxr/VRButton.js'
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 // @ts-ignore
-import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+// @ts-ignore
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 
 window.onload = () => {
     init()
@@ -517,6 +519,10 @@ function init() {
         document.addEventListener("keydown", onDocumentKeyDown, false)
 
         const loader = new GLTFLoader()
+        const dracoLoader = new DRACOLoader()
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/')
+        loader.setDRACOLoader( dracoLoader )
+
         const swapMeshInterval = 1.0 / metadata["fps"] // seconds
 
         const dynamicElements = new MeshVideo({
