@@ -56587,7 +56587,7 @@ const getVideoFolder = () => {
     const urlParams = new URLSearchParams(queryString);
     let videoFolder;
     if (urlParams.has('video')) {
-        videoFolder = urlParams.get('video');
+        videoFolder = `video/${urlParams.get('video')}`;
     }
     else {
         videoFolder = 'demo';
@@ -56746,7 +56746,7 @@ function init() {
                 }
             },
             [keyCodes.p]: {
-                description: "Save the the camera's pose and metadata to disk.",
+                description: "Save the camera's pose and metadata to disk.",
                 action: () => {
                     console.info("Saving metadata with camera pose...");
                     updateMetadata(camera, metadata);
