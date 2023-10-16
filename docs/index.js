@@ -56566,6 +56566,7 @@ const createRenderer = (width, height) => {
     renderer.setSize(width, height);
     document.body.appendChild(renderer.domElement);
     renderer.setClearColor(0x000000, 1);
+    renderer.outputEncoding = three__WEBPACK_IMPORTED_MODULE_0__["sRGBEncoding"];
     return renderer;
 };
 const createControls = (camera, renderer) => {

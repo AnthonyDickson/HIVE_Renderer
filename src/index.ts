@@ -244,6 +244,7 @@ const createRenderer = (width: number, height: number): THREE.WebGLRenderer => {
     document.body.appendChild(renderer.domElement)
 
     renderer.setClearColor(0x000000, 1)
+    renderer.outputEncoding = THREE.sRGBEncoding
 
     return renderer
 }
