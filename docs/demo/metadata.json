@@ -1,1 +1,1 @@
-{"fps": 30.0, "use_vertex_colour_for_bg": true}
+{"fps": 30.0, "num_frames": 75, "use_vertex_colour_for_bg": true, "add_ground_plane": false, "add_sky_box": false}
