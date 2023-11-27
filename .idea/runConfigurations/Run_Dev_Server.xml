@@ -1,20 +1,20 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="node-16" type="docker-deploy" factoryName="dockerfile">
-    <deployment type="dockerfile">
+  <configuration default="false" name="Run Dev Server" type="docker-deploy" factoryName="docker-image" server-name="Docker">
+    <deployment type="docker-image">
       <settings>
-        <option name="imageTag" value="anthonydickson/hive-renderer:node-16" />
-        <option name="containerName" value="node-16" />
+        <option name="imageTag" value="anthonydickson/hive-renderer" />
+        <option name="containerName" value="HIVE-Renderer" />
         <option name="portBindings">
           <list>
             <DockerPortBindingImpl>
               <option name="containerPort" value="8080" />
+              <option name="hostIp" value="0.0.0.0" />
               <option name="hostPort" value="8080" />
             </DockerPortBindingImpl>
           </list>
         </option>
         <option name="commandLineOptions" value="--rm" />
         <option name="showCommandPreview" value="true" />
-        <option name="sourceFilePath" value="Dockerfile" />
         <option name="volumeBindings">
           <list>
             <DockerVolumeBindingImpl>
@@ -25,6 +25,7 @@
             <DockerVolumeBindingImpl>
               <option name="containerPath" value="/app/docs" />
               <option name="hostPath" value="$PROJECT_DIR$/docs" />
+              <option name="readOnly" value="true" />
             </DockerVolumeBindingImpl>
           </list>
         </option>

@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Build JavaScript " type="docker-deploy" factoryName="docker-image" server-name="Docker">
+  <configuration default="false" name="Update GitHub Page JavaScript" type="docker-deploy" factoryName="docker-image" server-name="Docker">
     <deployment type="docker-image">
       <settings>
-        <option name="imageTag" value="node-16:latest" />
+        <option name="imageTag" value="anthonydickson/hive-renderer" />
         <option name="command" value="build" />
         <option name="containerName" value="" />
         <option name="commandLineOptions" value="--rm" />

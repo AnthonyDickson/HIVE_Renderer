@@ -56688,6 +56688,7 @@ const keyCodes = {
     'p': 80,
     'r': 82,
     's': 83,
+    'j': 74
 };
 const printKeyboardShortcuts = keyBindings => {
     console.info("Keyboard shortcuts:");
@@ -56708,7 +56709,7 @@ function init() {
     const stats = createStatsPanel();
     const userGroup = new three__WEBPACK_IMPORTED_MODULE_0__["Group"]();
     const videoFolder = getVideoFolder();
-    document.title = `3D Video | ${videoFolder}`;
+    document.title = `HIVE | ${videoFolder}`;
     const loadingOverlay = new LoadingOverlay();
     loadingOverlay.show();
     loadMetadata(videoFolder).then(metadata => {
@@ -56721,6 +56722,13 @@ function init() {
                 action: () => {
                     isPlaying = !isPlaying;
                     console.info(`Video is now ${isPlaying ? "playing" : "paused"}.`);
+                }
+            },
+            // On some platforms, `space` will enter/exit XR mode,
+            [keyCodes.j]: {
+                description: "Pause/play the video.",
+                action: () => {
+                    isPlaying = !isPlaying;
                 }
             },
             [keyCodes.c]: {
