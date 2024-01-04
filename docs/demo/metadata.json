@@ -1,1 +1,1 @@
-{"fps": 30.0, "num_frames": 75, "use_vertex_colour_for_bg": true, "add_ground_plane": false, "add_sky_box": false}
+{"fps": 30.0, "fov_y": 31, "aspect_ratio": 1.7827298050139275, "num_frames": 75, "use_vertex_colour_for_bg": true, "add_ground_plane": false, "add_sky_box": false}

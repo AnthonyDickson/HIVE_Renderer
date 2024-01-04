@@ -440,15 +440,6 @@ const printKeyboardShortcuts = keyBindings => {
 }
 
 function init() {
-    const canvasWidth = window.innerWidth
-    const canvasHeight = window.innerHeight
-    const scene = new THREE.Scene()
-    const camera = new THREE.PerspectiveCamera(60, canvasWidth / canvasHeight, 0.1, 1000)
-    const renderer = createRenderer(canvasWidth, canvasHeight)
-    const controls = createControls(camera, renderer)
-    const stats = createStatsPanel()
-    const userGroup = new THREE.Group()
-
     const videoFolder = getVideoFolder()
     document.title = `HIVE | ${videoFolder}`
 
@@ -456,6 +447,18 @@ function init() {
     loadingOverlay.show()
 
     loadMetadata(videoFolder).then(metadata => {
+        const canvasWidth = window.innerWidth
+        const canvasHeight = window.innerHeight
+        const fieldOfView = metadata.hasOwnProperty('fov_y') ? metadata['fov_y'] : 60
+        const aspectRatio = metadata.hasOwnProperty('aspect_ratio') ? metadata['aspect_ratio'] : canvasWidth / canvasHeight
+
+        const scene = new THREE.Scene()
+        const camera = new THREE.PerspectiveCamera(fieldOfView, aspectRatio, 0.1, 1000)
+        const renderer = createRenderer(canvasWidth, canvasHeight)
+        const controls = createControls(camera, renderer)
+        const stats = createStatsPanel()
+        const userGroup = new THREE.Group()
+
         let useCachedPose = true
         let isPlaying = true
         let showStats = false

@@ -56383,6 +56383,23 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var three_examples_jsm_webxr_VRButton_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! three/examples/jsm/webxr/VRButton.js */ "./node_modules/three/examples/jsm/webxr/VRButton.js");
 /* harmony import */ var three_examples_jsm_loaders_GLTFLoader_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! three/examples/jsm/loaders/GLTFLoader.js */ "./node_modules/three/examples/jsm/loaders/GLTFLoader.js");
 /* harmony import */ var three_examples_jsm_loaders_DRACOLoader_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! three/examples/jsm/loaders/DRACOLoader.js */ "./node_modules/three/examples/jsm/loaders/DRACOLoader.js");
+/*
+ * HIVE Renderer, WebXR renderer for 3D videos created with HIVE.
+ * Copyright (C) 2023  Anthony Dickson anthony.dickson9656@gmail.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -56700,19 +56717,21 @@ const printKeyboardShortcuts = keyBindings => {
     }
 };
 function init() {
-    const canvasWidth = window.innerWidth;
-    const canvasHeight = window.innerHeight;
-    const scene = new three__WEBPACK_IMPORTED_MODULE_0__["Scene"]();
-    const camera = new three__WEBPACK_IMPORTED_MODULE_0__["PerspectiveCamera"](60, canvasWidth / canvasHeight, 0.1, 1000);
-    const renderer = createRenderer(canvasWidth, canvasHeight);
-    const controls = createControls(camera, renderer);
-    const stats = createStatsPanel();
-    const userGroup = new three__WEBPACK_IMPORTED_MODULE_0__["Group"]();
     const videoFolder = getVideoFolder();
     document.title = `HIVE | ${videoFolder}`;
     const loadingOverlay = new LoadingOverlay();
     loadingOverlay.show();
     loadMetadata(videoFolder).then(metadata => {
+        const canvasWidth = window.innerWidth;
+        const canvasHeight = window.innerHeight;
+        const fieldOfView = metadata.hasOwnProperty('fov_y') ? metadata['fov_y'] : 60;
+        const aspectRatio = metadata.hasOwnProperty('aspect_ratio') ? metadata['aspect_ratio'] : canvasWidth / canvasHeight;
+        const scene = new three__WEBPACK_IMPORTED_MODULE_0__["Scene"]();
+        const camera = new three__WEBPACK_IMPORTED_MODULE_0__["PerspectiveCamera"](fieldOfView, aspectRatio, 0.1, 1000);
+        const renderer = createRenderer(canvasWidth, canvasHeight);
+        const controls = createControls(camera, renderer);
+        const stats = createStatsPanel();
+        const userGroup = new three__WEBPACK_IMPORTED_MODULE_0__["Group"]();
         let useCachedPose = true;
         let isPlaying = true;
         let showStats = false;
