@@ -56578,6 +56578,30 @@ class LoadingOverlay {
         this.isVisible = false;
     }
 }
+/**
+ * Displays an overlay over the renderer and shows a progress spinner while the assets load in.
+ */
+class HelpOverlay {
+    constructor() {
+        this.helpButton = document.getElementById("help-button");
+        this.helpText = document.getElementById("help-text");
+        this.helpButton.addEventListener("mouseenter", () => this.show(), false);
+        this.helpButton.addEventListener("mouseleave", () => this.hide(), false);
+    }
+    addHelpText(text) {
+        /**
+         * Set the help text. The text can contain HTML code.
+         */
+        this.helpText.innerHTML = text;
+        this.hide();
+    }
+    show() {
+        this.helpText.style.display = 'block';
+    }
+    hide() {
+        this.helpText.style.display = 'none';
+    }
+}
 const createRenderer = (width, height) => {
     const renderer = new three__WEBPACK_IMPORTED_MODULE_0__["WebGLRenderer"]();
     renderer.setSize(width, height);
@@ -56716,6 +56740,24 @@ const printKeyboardShortcuts = keyBindings => {
         }
     }
 };
+const formatControls = (keyBindings, keyCodes) => {
+    let helpText = "<h2>Mouse Controls</h2>" +
+        "<ul>" +
+        "<li>[Left Click] + [Drag]: Adjust viewing angle</li>" +
+        "<li>[Right Click] + [Drag]: Pan camera</li>" +
+        "<li>[Scroll Wheel]: Zoom camera</li>" +
+        "</ul>" +
+        "<h2>Keyboard Controls</h2>" +
+        "<ul>";
+    for (const key in keyCodes) {
+        const keyCode = keyCodes[key];
+        if (keyBindings.hasOwnProperty(keyCode)) {
+            helpText += `<li>[${key.toUpperCase()}]: ${keyBindings[keyCode].description}</li>`;
+        }
+    }
+    helpText += "</ul>";
+    return helpText;
+};
 function init() {
     const videoFolder = getVideoFolder();
     document.title = `HIVE | ${videoFolder}`;
@@ -56807,6 +56849,8 @@ function init() {
                 console.error(`Could not go to frame ${frameIndexString}.`);
             }
         };
+        const help = new HelpOverlay();
+        help.addHelpText(formatControls(keyBindings, keyCodes));
         const onDocumentKeyDown = (event) => {
             const keyCode = event.which;
             if (keyBindings.hasOwnProperty(keyCode)) {

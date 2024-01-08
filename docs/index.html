@@ -94,11 +94,47 @@
         #container {
             display: none;
         }
+
+        #help {
+            position: absolute;
+            right: 1rem;
+            bottom: 1rem;
+            font-family: sans-serif, "Helvetica Neue", Helvetica, Arial;
+            color: white;
+        }
+
+        #help-button {
+            border-radius: .3rem;
+            border: white .1rem solid;
+            padding: .5rem;
+            width: 4.5rem;
+            height: 1rem;
+            background: rgba(0, 0, 0, 0.1);
+            text-align: center;
+            float: right;
+            opacity: 0.5;
+        }
+
+        #help-text {
+            border-radius: .3rem;
+            border: white .1rem solid;
+            background: rgba(0, 0, 0, 0.5);
+            padding: .5rem;
+        }
     </style>
 </head>
 <body>
     <div id="loader-overlay">
         <div id="loader">
+        </div>
+    </div>
+
+    <div id="help">
+        <div id="help-text">
+
+        </div>
+        <div id="help-button">
+            Controls
         </div>
     </div>
 
