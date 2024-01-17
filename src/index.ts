@@ -506,7 +506,7 @@ function init() {
         const canvasWidth = window.innerWidth
         const canvasHeight = window.innerHeight
         const fieldOfView = metadata.hasOwnProperty('fov_y') ? metadata['fov_y'] : 60
-        const aspectRatio = metadata.hasOwnProperty('aspect_ratio') ? metadata['aspect_ratio'] : canvasWidth / canvasHeight
+        const aspectRatio = canvasWidth / canvasHeight
 
         const scene = new THREE.Scene()
         const camera = new THREE.PerspectiveCamera(fieldOfView, aspectRatio, 0.1, 1000)

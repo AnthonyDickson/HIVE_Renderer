@@ -56767,7 +56767,7 @@ function init() {
         const canvasWidth = window.innerWidth;
         const canvasHeight = window.innerHeight;
         const fieldOfView = metadata.hasOwnProperty('fov_y') ? metadata['fov_y'] : 60;
-        const aspectRatio = metadata.hasOwnProperty('aspect_ratio') ? metadata['aspect_ratio'] : canvasWidth / canvasHeight;
+        const aspectRatio = canvasWidth / canvasHeight;
         const scene = new three__WEBPACK_IMPORTED_MODULE_0__["Scene"]();
         const camera = new three__WEBPACK_IMPORTED_MODULE_0__["PerspectiveCamera"](fieldOfView, aspectRatio, 0.1, 1000);
         const renderer = createRenderer(canvasWidth, canvasHeight);
